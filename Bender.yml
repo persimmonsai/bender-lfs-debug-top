@@ -1,0 +1,10 @@
+package: 
+  name: bender-lfs-debug-top
+  authors:
+    - "None"
+
+dependencies:
+  bender-lfs-debug:
+    git: git@github.com:persimmonsai/bender-lfs-debug
+    rev: main
+
