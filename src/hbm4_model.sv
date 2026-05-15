@@ -505,8 +505,10 @@ module hbm4_model (
               logic [35:0] next_st;
               logic rdbi_en;
               int addr;
+              logic [255:0] read_data_256;
               automatic int dynamic_rl = (mode_reg_pc0[2] != 0) ? mode_reg_pc0[2] : 14;
-              addr = dword_pc0.C_ADDR * 32;
+              automatic int b_idx = {dword_pc0.BG, dword_pc0.BA};
+              addr = {dword_pc0.BG, dword_pc0.BA, active_row[b_idx], dword_pc0.C_ADDR};
               
               // Wait for RL (preamble starts 2 tCK early)
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
@@ -518,10 +520,11 @@ module hbm4_model (
               vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
+              read_data_256 = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
               
               for (int beat = 0; beat < 4; beat++) begin
-                ui0_data = mem_array_pc0[addr + beat*2];
-                ui1_data = mem_array_pc0[addr + beat*2 + 1];
+                ui0_data = read_data_256[(beat*2)*32 +: 32];
+                ui1_data = read_data_256[(beat*2+1)*32 +: 32];
                 
                 begin : rdbi_processing_pc0
                   next_st = hbm4_pkg::process_dbi_word(ui0_data, last_read_state_pc0, rdbi_en);
@@ -543,11 +546,11 @@ module hbm4_model (
                   @(posedge vif.WCK_t);
                 end
               end
-              read_valid_pc0 = 0;
               
               // Postamble (2 WCK pulses)
               vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              read_valid_pc0 = 0;
             end
           join_none
         end
@@ -634,8 +637,10 @@ module hbm4_model (
               logic [35:0] next_st;
               logic rdbi_en;
               int addr;
+              logic [255:0] read_data_256;
               automatic int dynamic_rl = (mode_reg_pc1[2] != 0) ? mode_reg_pc1[2] : 14;
-              addr = dword_pc1.C_ADDR * 32;
+              automatic int b_idx = {dword_pc1.BG, dword_pc1.BA};
+              addr = {dword_pc1.BG, dword_pc1.BA, active_row[b_idx], dword_pc1.C_ADDR};
               
               // Wait for RL (preamble starts 2 tCK early)
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
@@ -647,10 +652,11 @@ module hbm4_model (
               vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
+              read_data_256 = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
               
               for (int beat = 0; beat < 4; beat++) begin
-                ui0_data = mem_array_pc1[addr + beat*2];
-                ui1_data = mem_array_pc1[addr + beat*2 + 1];
+                ui0_data = read_data_256[(beat*2)*32 +: 32];
+                ui1_data = read_data_256[(beat*2+1)*32 +: 32];
                 
                 begin : rdbi_processing_pc1
                   next_st = hbm4_pkg::process_dbi_word(ui0_data, last_read_state_pc1, rdbi_en);
@@ -672,11 +678,11 @@ module hbm4_model (
                   @(posedge vif.WCK_t);
                 end
               end
-              read_valid_pc1 = 0;
               
               // Postamble (2 WCK pulses)
               vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              read_valid_pc1 = 0;
             end
           join_none
         end

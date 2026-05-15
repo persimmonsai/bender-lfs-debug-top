@@ -300,6 +300,9 @@ module tb_top;
       logic last_is_write_pc0, last_is_write_pc1;
       logic [255:0] data_pc0, data_pc1;
       
+      int written_pc0[$];
+      int written_pc1[$];
+      
       num_transactions = 500;
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: Concurrent Pseudo-Traffic Generation (%0d transactions)", $time, num_transactions);
@@ -313,18 +316,37 @@ module tb_top;
       
       $display("[%0t] TB_TOP: Starting highly concurrent command injection...", $time);
       for (int i=0; i<num_transactions; i++) begin
-        int b_idx_pc0;
-        int b_idx_pc1;
-        b_idx_pc0 = $urandom_range(0, 3);
-        b_idx_pc1 = $urandom_range(0, 3);
+        int b_idx_pc0, b_idx_pc1;
+        int r_idx_pc0, r_idx_pc1;
+        logic [11:0] tmp_addr;
         
-        bg_pc0 = b_idx_pc0[1:0]; ba_pc0 = b_idx_pc0[1:0];
-        bg_pc1 = b_idx_pc1[1:0]; ba_pc1 = b_idx_pc1[1:0];
-        
-        col_pc0 = $urandom_range(0, 63);
-        col_pc1 = $urandom_range(0, 63);
         is_write_pc0 = $urandom_range(0, 1);
         is_write_pc1 = $urandom_range(0, 1);
+        
+        if (written_pc0.size() == 0) is_write_pc0 = 1;
+        if (written_pc1.size() == 0) is_write_pc1 = 1;
+        
+        if (is_write_pc0) begin
+           b_idx_pc0 = $urandom_range(0, 3);
+           bg_pc0 = b_idx_pc0[1:0]; ba_pc0 = b_idx_pc0[1:0];
+           col_pc0 = $urandom_range(0, 63);
+           written_pc0.push_back({20'd0, bg_pc0, ba_pc0, col_pc0});
+        end else begin
+           r_idx_pc0 = $urandom_range(0, written_pc0.size()-1);
+           tmp_addr = written_pc0[r_idx_pc0][11:0];
+           {bg_pc0, ba_pc0, col_pc0} = tmp_addr;
+        end
+        
+        if (is_write_pc1) begin
+           b_idx_pc1 = $urandom_range(0, 3);
+           bg_pc1 = b_idx_pc1[1:0]; ba_pc1 = b_idx_pc1[1:0];
+           col_pc1 = $urandom_range(0, 63);
+           written_pc1.push_back({20'd0, bg_pc1, ba_pc1, col_pc1});
+        end else begin
+           r_idx_pc1 = $urandom_range(0, written_pc1.size()-1);
+           tmp_addr = written_pc1[r_idx_pc1][11:0];
+           {bg_pc1, ba_pc1, col_pc1} = tmp_addr;
+        end
         
         data_pc0 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
         data_pc1 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
