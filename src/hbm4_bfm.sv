@@ -95,19 +95,18 @@ module hbm4_bfm (
       // Auto-configure all 20 Mode Registers (MR0-MR19) for simulation
       $display("[%0t] HBM4_BFM: Auto-configuring Mode Registers MR0-MR19...", $time);
       for (int i = 0; i < 20; i++) begin
-        if (i == 0) begin
-          mode_register_set_pc0(i[4:0], 8'h03); // Enable WDBI and RDBI
-          mode_register_set_pc1(i[4:0], 8'h03);
-        end else if (i == 1) begin
-          mode_register_set_pc0(i[4:0], 8'h06); // WL=6
-          mode_register_set_pc1(i[4:0], 8'h06);
-        end else if (i == 2) begin
-          mode_register_set_pc0(i[4:0], 8'h0E); // RL=14
-          mode_register_set_pc1(i[4:0], 8'h0E);
-        end else begin
-          mode_register_set_pc0(i[4:0], 8'h00);
-          mode_register_set_pc1(i[4:0], 8'h00);
-        end
+        automatic logic [7:0] mr_data;
+        case (i)
+          0: mr_data = 8'h04; // MR0: TCSR Enabled (OP[2]=1), DBI Disabled
+          1: mr_data = 8'h06; // MR1: WL=6 nCK (OP[4:0]=6)
+          2: mr_data = 8'h0E; // MR2: RL=14 nCK (OP[7:0]=14)
+          3: mr_data = 8'h10; // MR3: WR=16 nCK (OP[7:0]=16)
+          4: mr_data = 8'h22; // MR4: RAS=34 nCK (OP[7:0]=34)
+          5: mr_data = 8'h08; // MR5: RTP=8 nCK (OP[3:0]=8)
+          default: mr_data = 8'h00; // Other MRs default to 0
+        endcase
+        mode_register_set_pc0(i[4:0], mr_data);
+        mode_register_set_pc1(i[4:0], mr_data);
         #(10ns);
       end
       
