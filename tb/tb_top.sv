@@ -290,6 +290,86 @@ module tb_top;
     end
   endtask
 
+  task test_concurrent_traffic();
+    begin
+      int num_transactions;
+      logic [1:0] bg_pc0, bg_pc1;
+      logic [3:0] ba_pc0, ba_pc1;
+      logic [5:0] col_pc0, col_pc1;
+      logic is_write_pc0, is_write_pc1;
+      logic last_is_write_pc0, last_is_write_pc1;
+      logic [255:0] data_pc0, data_pc1;
+      
+      num_transactions = 500;
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Concurrent Pseudo-Traffic Generation (%0d transactions)", $time, num_transactions);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      $display("[%0t] TB_TOP: Pre-activating independent banks...", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); #(tRCD);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0200); #(tRCD);
+      u_hbm4_bfm[0].activate(2'b10, 4'b0010, 15'h0300); #(tRCD);
+      u_hbm4_bfm[0].activate(2'b11, 4'b0011, 15'h0400); #(tRCD);
+      
+      $display("[%0t] TB_TOP: Starting highly concurrent command injection...", $time);
+      for (int i=0; i<num_transactions; i++) begin
+        int b_idx_pc0;
+        int b_idx_pc1;
+        b_idx_pc0 = $urandom_range(0, 3);
+        b_idx_pc1 = $urandom_range(0, 3);
+        
+        bg_pc0 = b_idx_pc0[1:0]; ba_pc0 = b_idx_pc0[1:0];
+        bg_pc1 = b_idx_pc1[1:0]; ba_pc1 = b_idx_pc1[1:0];
+        
+        col_pc0 = $urandom_range(0, 63);
+        col_pc1 = $urandom_range(0, 63);
+        is_write_pc0 = $urandom_range(0, 1);
+        is_write_pc1 = $urandom_range(0, 1);
+        
+        data_pc0 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
+        data_pc1 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
+        
+        // Calculate dynamic turnaround delay BEFORE issuing current command
+        if (i > 0) begin
+          time delay_pc0, delay_pc1, required_delay;
+          delay_pc0 = tCCD_L;
+          delay_pc1 = tCCD_L;
+          
+          if (last_is_write_pc0 && !is_write_pc0) delay_pc0 = tWTR_L;
+          else if (!last_is_write_pc0 && is_write_pc0) delay_pc0 = tRTW;
+          
+          if (last_is_write_pc1 && !is_write_pc1) delay_pc1 = tWTR_L;
+          else if (!last_is_write_pc1 && is_write_pc1) delay_pc1 = tRTW;
+          
+          required_delay = (delay_pc0 > delay_pc1) ? delay_pc0 : delay_pc1;
+          #(required_delay);
+        end
+        
+        fork
+          begin
+            if (is_write_pc0) u_hbm4_bfm[0].write_pc0(bg_pc0, ba_pc0, col_pc0, data_pc0);
+            else              u_hbm4_bfm[0].read_pc0(bg_pc0, ba_pc0, col_pc0);
+          end
+          begin
+            if (is_write_pc1) u_hbm4_bfm[0].write_pc1(bg_pc1, ba_pc1, col_pc1, data_pc1);
+            else              u_hbm4_bfm[0].read_pc1(bg_pc1, ba_pc1, col_pc1);
+          end
+        join
+        
+        last_is_write_pc0 = is_write_pc0;
+        last_is_write_pc1 = is_write_pc1;
+      end
+      
+      #(tWL + tCL + tWR + 20ns);
+      
+      $display("[%0t] TB_TOP: Precharging all active banks...", $time);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000); #(tRP);
+      u_hbm4_bfm[0].precharge(2'b01, 4'b0001); #(tRP);
+      u_hbm4_bfm[0].precharge(2'b10, 4'b0010); #(tRP);
+      u_hbm4_bfm[0].precharge(2'b11, 4'b0011); #(tRP);
+    end
+  endtask
+
   // ------------------------------------------------------------------------
   // Master Test Sequence
   // ------------------------------------------------------------------------
@@ -306,7 +386,7 @@ module tb_top;
     end
     
     // Wait for initializations to finish (1050ns reset + 10ns PDE + 200ns tINIT5 = ~1260ns minimum)
-    #(1500ns);
+    #(2000ns);
     
     if ($value$plusargs("TEST=%s", test_name)) begin
       $display("[%0t] TB_TOP: Running explicit test: %s", $time, test_name);
@@ -316,6 +396,7 @@ module tb_top;
       else if (test_name == "test_timing_rtp") test_timing_rtp();
       else if (test_name == "test_timing_wtr") test_timing_wtr();
       else if (test_name == "test_random_traffic") test_random_traffic();
+      else if (test_name == "test_concurrent_traffic") test_concurrent_traffic();
       else if (test_name == "test_refresh_mechanics") test_refresh_mechanics();
       else begin
         $display("UNKNOWN TEST: %s", test_name);

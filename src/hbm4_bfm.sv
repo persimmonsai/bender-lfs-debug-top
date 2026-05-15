@@ -153,8 +153,9 @@ module hbm4_bfm (
 
   // Task to write data to PC0
   task automatic write_pc0(input logic [1:0] bg, input logic [3:0] ba, input logic [5:0] col, input logic [255:0] data);
-    dword_t dword;
-    dword.CMD = CMD_WR;
+    begin
+      dword_t dword;
+      dword.CMD = CMD_WR;
     dword.BG = bg;
     dword.BA = ba;
     dword.C_ADDR = col;
@@ -219,74 +220,6 @@ module hbm4_bfm (
       end
     join_none
     
-    @(posedge vif.CK_t);
-    begin
-      dword_t dword;
-      dword.CMD = CMD_WR;
-      dword.BG = bg;
-      dword.BA = ba;
-      dword.C_ADDR = col;
-      dword.C = 0;
-      
-      @(posedge vif.CK_t);
-      vif.DWORD_PC0 <= dword;
-      
-      fork
-        begin
-          @(posedge vif.CK_t); // Wait for command to be on the bus
-          repeat(wl_pc0 - 1) @(posedge vif.CK_t);
-          
-          // Two-pulse Preamble (2 WCK cycles = 1 tCK)
-          for (int p = 0; p < 2; p++) begin
-            vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
-            @(negedge vif.WCK_t);
-            vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
-            @(posedge vif.WCK_t);
-          end
-          begin : wdbi_processing_pc0
-            logic [31:0] ui0_data;
-            logic [31:0] ui1_data;
-            logic [35:0] next_st;
-            logic wdbi_en;
-            
-            wdbi_en = (mode_reg_pc0[0][1] == 1'b1);
-            
-            for (int beat = 0; beat < 4; beat++) begin
-              ui0_data = data[(beat*2)*32 +: 32];
-              ui1_data = data[(beat*2+1)*32 +: 32];
-              
-              vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
-              dq_pc0_en = 1;
-              
-              next_st = process_dbi_word(ui0_data, last_write_state_pc0, wdbi_en);
-              dq_pc0_drive = next_st[31:0];
-              dbi_pc0_drive = next_st[35:32];
-              last_write_state_pc0 = next_st;
-              
-              @(negedge vif.WCK_t);
-              vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
-              
-              next_st = process_dbi_word(ui1_data, last_write_state_pc0, wdbi_en);
-              dq_pc0_drive = next_st[31:0];
-              dbi_pc0_drive = next_st[35:32];
-              last_write_state_pc0 = next_st;
-              
-              @(posedge vif.WCK_t);
-            end
-          end
-          dq_pc0_en = 0;
-          
-          // Two-pulse Postamble (2 WCK cycles = 1 tCK)
-          for (int p = 0; p < 2; p++) begin
-            vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
-            @(negedge vif.WCK_t);
-            vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
-            @(posedge vif.WCK_t);
-          end
-          vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
-        end
-      join_none
-      
       @(posedge vif.CK_t);
       vif.DWORD_PC0 <= '0; // NOP
     end
