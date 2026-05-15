@@ -1,0 +1,110 @@
+`ifndef HBM4_PKG_SV
+`define HBM4_PKG_SV
+
+package hbm4_pkg;
+
+  // HBM4 Constants
+  localparam int NUM_CHANNELS = 32;
+  localparam int PC_PER_CH    = 2; // Pseudo Channels per Channel
+  
+  // DQ Width per Pseudo Channel is 32 bits
+  localparam int DQ_WIDTH_PC = 32;
+  localparam int DQ_WIDTH_CH = DQ_WIDTH_PC * PC_PER_CH; // 64 bits
+
+  // Addressing params (can vary, assuming 16Gb density per channel)
+  localparam int BA_WIDTH  = 4; // 16 Banks
+  localparam int BG_WIDTH  = 2; // 4 Bank Groups
+  localparam int ROW_WIDTH = 15;
+  localparam int COL_WIDTH = 6; 
+
+  // Commands based on JESD270-4
+  typedef enum logic [3:0] {
+    CMD_NOP = 4'b0000,
+    CMD_ACT = 4'b0001,
+    CMD_PRE = 4'b0010,
+    CMD_RD  = 4'b0011,
+    CMD_WR  = 4'b0100,
+    CMD_MRS = 4'b0101,
+    CMD_REF = 4'b0110,
+    CMD_SRE = 4'b0111,
+    CMD_PDE = 4'b1000
+  } hbm4_cmd_e;
+
+  // AWORD (Row Command Bus) Structure
+  typedef struct packed {
+    logic       R;      // Reserved / Parity
+    logic [4:0] R_ADDR; // Row Address portions
+    logic [3:0] BA;     // Bank Address
+    logic [1:0] BG;     // Bank Group
+    logic [3:0] CMD;    // Command
+  } aword_t;
+
+  // DWORD (Column Command Bus) Structure
+  typedef struct packed {
+    logic       C;      // Reserved / Parity
+    logic [5:0] C_ADDR; // Column Address
+    logic [3:0] BA;     // Bank Address
+    logic [1:0] BG;     // Bank Group
+    logic [3:0] CMD;    // Command
+  } dword_t;
+
+  // Timing Parameters (Based on Micron HBM3E Datasheet RevL)
+  // Assuming nominal tCK = 1ns for nCK to ns conversion
+  localparam time tRCD = 17ns;
+  localparam time tCL  = 10ns;
+  localparam time tWL  = 8ns;
+  localparam time tRP  = 16ns;
+  localparam time tRAS = 30ns;
+  localparam time tRC  = 46ns; // tRAS + tRP
+
+  // Advanced Timing Parameters
+  localparam time tCCD_L = 4ns;  // 4 nCK
+  localparam time tCCD_S = 2ns;  // 2 nCK
+  localparam time tWTR_L = 8ns;  // 4*tCK + 4ns
+  localparam time tWTR_S = 6ns;  // 2*tCK + 4ns
+  localparam time tRTW   = 18ns; // 18 nCK
+  localparam time tWR    = 20ns; // Write recovery
+  localparam time tRTP   = 4ns;  // MAX(4*tCK, 4ns)
+
+  // Refresh & MRS Parameters
+  localparam time tRFC   = 260ns;
+  localparam time tREFI  = 3900ns; // 3.9us
+  localparam time tMOD   = 10ns;   // MRS update delay
+  localparam time tMRD   = 10ns;   // MRS to MRS delay
+
+  // AC DBI Toggle Calculation Function
+  function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);
+    int toggle_count = $countones(data ^ prev_data);
+    if (toggle_count > 4 || (toggle_count == 4 && prev_dbi == 1)) begin
+      return {1'b1, ~data}; // {DBI, Inverted_Data}
+    end else begin
+      return {1'b0, data};  // {DBI, Original_Data}
+    end
+  endfunction
+
+  function automatic logic [35:0] process_dbi_word(input logic [31:0] data, input logic [35:0] last_state, input logic en);
+    logic [35:0] res;
+    logic [8:0] b_res0, b_res1, b_res2, b_res3;
+    if (en) begin
+      b_res0 = compute_dbi_byte(data[7:0],   last_state[7:0],   last_state[32]);
+      b_res1 = compute_dbi_byte(data[15:8],  last_state[15:8],  last_state[33]);
+      b_res2 = compute_dbi_byte(data[23:16], last_state[23:16], last_state[34]);
+      b_res3 = compute_dbi_byte(data[31:24], last_state[31:24], last_state[35]);
+      res[7:0]   = b_res0[7:0];
+      res[32]    = b_res0[8];
+      res[15:8]  = b_res1[7:0];
+      res[33]    = b_res1[8];
+      res[23:16] = b_res2[7:0];
+      res[34]    = b_res2[8];
+      res[31:24] = b_res3[7:0];
+      res[35]    = b_res3[8];
+    end else begin
+      res[31:0]  = data[31:0];
+      res[35:32] = 4'b0000;
+    end
+    return res;
+  endfunction
+
+endpackage : hbm4_pkg
+
+`endif
