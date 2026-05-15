@@ -508,8 +508,15 @@ module hbm4_model (
               automatic int dynamic_rl = (mode_reg_pc0[2] != 0) ? mode_reg_pc0[2] : 14;
               addr = dword_pc0.C_ADDR * 32;
               
-              // Wait for RL
-              repeat(dynamic_rl) @(posedge vif.CK_t);
+              // Wait for RL (preamble starts 2 tCK early)
+              repeat(dynamic_rl - 2) @(posedge vif.CK_t);
+              
+              // Drive Preamble (4 WCK pulses)
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
               
               for (int beat = 0; beat < 4; beat++) begin
@@ -523,6 +530,8 @@ module hbm4_model (
                   read_valid_pc0 = 1;
                   last_read_state_pc0 = next_st;
                   
+                  vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0;
+                  
                   @(negedge vif.WCK_t);
                   
                   next_st = hbm4_pkg::process_dbi_word(ui1_data, last_read_state_pc0, rdbi_en);
@@ -530,10 +539,15 @@ module hbm4_model (
                   read_dbi_pc0 = next_st[35:32];
                   last_read_state_pc0 = next_st;
                   
+                  vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               read_valid_pc0 = 0;
+              
+              // Postamble (2 WCK pulses)
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
             end
           join_none
         end
@@ -623,8 +637,15 @@ module hbm4_model (
               automatic int dynamic_rl = (mode_reg_pc1[2] != 0) ? mode_reg_pc1[2] : 14;
               addr = dword_pc1.C_ADDR * 32;
               
-              // Wait for RL
-              repeat(dynamic_rl) @(posedge vif.CK_t);
+              // Wait for RL (preamble starts 2 tCK early)
+              repeat(dynamic_rl - 2) @(posedge vif.CK_t);
+              
+              // Drive Preamble (4 WCK pulses)
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               
               for (int beat = 0; beat < 4; beat++) begin
@@ -638,6 +659,8 @@ module hbm4_model (
                   read_valid_pc1 = 1;
                   last_read_state_pc1 = next_st;
                   
+                  vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0;
+                  
                   @(negedge vif.WCK_t);
                   
                   next_st = hbm4_pkg::process_dbi_word(ui1_data, last_read_state_pc1, rdbi_en);
@@ -645,16 +668,28 @@ module hbm4_model (
                   read_dbi_pc1 = next_st[35:32];
                   last_read_state_pc1 = next_st;
                   
+                  vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               read_valid_pc1 = 0;
+              
+              // Postamble (2 WCK pulses)
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
             end
           join_none
         end
       end
     end
   end
+
+  // Continuous assignments for driving read data
+  assign vif.DQ_PC0 = read_valid_pc0 ? read_data_pc0 : 32'hz;
+  assign vif.DBI_PC0 = read_valid_pc0 ? read_dbi_pc0 : 4'hz;
+  
+  assign vif.DQ_PC1 = read_valid_pc1 ? read_data_pc1 : 32'hz;
+  assign vif.DBI_PC1 = read_valid_pc1 ? read_dbi_pc1 : 4'hz;
 
 endmodule : hbm4_model
 `endif
