@@ -1011,7 +1011,7 @@ module hbm4_model (
 
         int bank_idx;
         if (mr_programmed_pc0 != 20'hFFFFF || mr_programmed_pc1 != 20'hFFFFF) begin
-          $error("[%0t] HBM4_PROTOCOL_ERROR: READ issued before all 20 Mode Registers were programmed!", $time);
+          $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE issued before all 20 Mode Registers were programmed!", $time);
         end
 
                 
@@ -1020,6 +1020,34 @@ module hbm4_model (
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE PC1 to idle bank %0d!", $time, bank_idx);
+        end
+        
+        // Refresh Cycle Check
+        if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on WRITE PC1.", $time);
+        end
+        // tMOD Check
+        if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on WRITE PC1.", $time);
+        end
+        
+        // Timing Check: tRCD
+        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on WRITE PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        end
+        
+        // Timing Check: tCCD (WR to WR)
+        if (last_wr_time_pc1 != 0) begin
+          time tccd_val;
+          tccd_val = (dword_pc1.BG == last_wr_bg_pc1) ? tCCD_L : tCCD_S;
+          if (($time - last_wr_time_pc1) < tccd_val) begin
+             $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on WRITE PC1. Expected %0t, got %0t", $time, tccd_val, ($time - last_wr_time_pc1));
+          end
+        end
+        
+        // Timing Check: tRTW (RD to WR)
+        if (($time - last_rd_time_pc1) < tRTW && last_rd_time_pc1 != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRTW violation on WRITE PC1. Expected %0t, got %0t", $time, tRTW, ($time - last_rd_time_pc1));
         end
         
         last_wr_time_pc1 <= $time;
@@ -1100,6 +1128,38 @@ module hbm4_model (
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC1 to idle bank %0d!", $time, bank_idx);
+        end
+        
+        // Refresh Cycle Check
+        if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on READ PC1.", $time);
+        end
+        // tMOD Check
+        if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on READ PC1.", $time);
+        end
+        
+        // Timing Check: tRCD
+        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on READ PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        end
+        
+        // Timing Check: tCCD (RD to RD)
+        if (last_rd_time_pc1 != 0) begin
+          time tccd_val;
+          tccd_val = (dword_pc1.BG == last_rd_bg_pc1) ? tCCD_L : tCCD_S;
+          if (($time - last_rd_time_pc1) < tccd_val) begin
+             $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on READ PC1. Expected %0t, got %0t", $time, tccd_val, ($time - last_rd_time_pc1));
+          end
+        end
+        
+        // Timing Check: tWTR (WR to RD)
+        if (last_wr_time_pc1 != 0) begin
+          time twtr_val;
+          twtr_val = (dword_pc1.BG == last_wr_bg_pc1) ? tWTR_L : tWTR_S;
+          if (($time - last_wr_time_pc1) < twtr_val) begin
+             $error("[%0t] HBM4_TIMING_ERROR: tWTR violation on READ PC1. Expected %0t, got %0t", $time, twtr_val, ($time - last_wr_time_pc1));
+          end
         end
         
         last_rd_time_pc1 <= $time;
