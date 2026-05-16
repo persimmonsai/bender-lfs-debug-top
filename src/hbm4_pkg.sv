@@ -30,7 +30,9 @@ package hbm4_pkg;
     CMD_PDE = 4'b1000,
     CMD_PREA  = 4'b1001,
     CMD_REFpb = 4'b1010,
-    CMD_MRR   = 4'b1011
+    CMD_MRR   = 4'b1011,
+    CMD_PDX   = 4'b1100,
+    CMD_SRX   = 4'b1101
   } hbm4_cmd_e;
 
   // AWORD (Row Command Bus) Structure
@@ -78,6 +80,11 @@ package hbm4_pkg;
   localparam time tREFI  = 3900ns; // 3.9us
   localparam time tMOD   = 10ns;   // MRS update delay
   localparam time tMRD   = 10ns;   // MRS to MRS delay
+
+  // Low-Power State Timings
+  localparam time tPD    = 10ns;   // Power-Down minimum time
+  localparam time tXS    = 200ns;  // Self-Refresh Exit Delay
+  localparam time tCKSRE = 10ns;   // Valid clock after Self-Refresh Entry
 
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);

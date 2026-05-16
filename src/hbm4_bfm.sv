@@ -152,6 +152,51 @@ endfunction
     end
   endtask
 
+
+  task enter_power_down();
+    begin
+      aword_t aword;
+      aword.CMD = CMD_PDE;
+      aword.BG = '0; aword.BA = '0; aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      @(posedge vif.CK_t); vif.AWORD <= aword;
+      @(posedge vif.CK_t); vif.AWORD <= '0;
+    end
+  endtask
+
+  task exit_power_down();
+    begin
+      aword_t aword;
+      aword.CMD = CMD_PDX;
+      aword.BG = '0; aword.BA = '0; aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      @(posedge vif.CK_t); vif.AWORD <= aword;
+      @(posedge vif.CK_t); vif.AWORD <= '0;
+    end
+  endtask
+
+  task enter_self_refresh();
+    begin
+      aword_t aword;
+      aword.CMD = CMD_SRE;
+      aword.BG = '0; aword.BA = '0; aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      @(posedge vif.CK_t); vif.AWORD <= aword;
+      @(posedge vif.CK_t); vif.AWORD <= '0;
+    end
+  endtask
+
+  task exit_self_refresh();
+    begin
+      aword_t aword;
+      aword.CMD = CMD_SRX;
+      aword.BG = '0; aword.BA = '0; aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      @(posedge vif.CK_t); vif.AWORD <= aword;
+      @(posedge vif.CK_t); vif.AWORD <= '0;
+    end
+  endtask
+
   // Task to issue PRECHARGE command
   task precharge(input logic [1:0] bg, input logic [3:0] ba);
     begin

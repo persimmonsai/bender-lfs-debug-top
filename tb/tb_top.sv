@@ -505,6 +505,48 @@ module tb_top;
     end
   endtask
 
+
+  task test_low_power_states();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Low Power States (PD and SRE)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Entering Power-Down", $time);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      $display("[%0t] TB_TOP: Exiting Power-Down", $time);
+      u_hbm4_bfm[0].exit_power_down();
+      #(10ns);
+      
+      $display("[%0t] TB_TOP: Entering Self-Refresh", $time);
+      u_hbm4_bfm[0].enter_self_refresh();
+      #(20ns);
+      
+      $display("[%0t] TB_TOP: Expecting Command Error (ACT while in SRE)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      
+      $display("[%0t] TB_TOP: Exiting Self-Refresh", $time);
+      u_hbm4_bfm[0].exit_self_refresh();
+      
+      // Attempt immediate ACT (tXS violation)
+      #(10ns);
+      $display("[%0t] TB_TOP: Expecting tXS Timing Error", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      
+      #(tXS); // Wait full tXS
+      $display("[%0t] TB_TOP: Issuing valid ACT after tXS", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCD);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+    end
+  endtask
+
   task test_mrr();
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
@@ -572,6 +614,7 @@ module tb_top;
       else if (test_name == "test_concurrent_traffic") test_concurrent_traffic();
       else if (test_name == "test_refresh_mechanics") test_refresh_mechanics();
       else if (test_name == "test_prea_refpb") test_prea_refpb();
+      else if (test_name == "test_low_power_states") test_low_power_states();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end

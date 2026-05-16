@@ -61,6 +61,17 @@ module hbm4_model (
   logic [7:0] mode_reg_pc1 [20];
   logic [19:0] mr_programmed_pc1 = 0;
 
+  // Power State
+  typedef enum logic [1:0] {
+    PWR_ACTIVE,
+    PWR_PRE_PD,
+    PWR_ACT_PD,
+    PWR_SELF_REF
+  } power_state_e;
+  power_state_e power_state = PWR_ACTIVE;
+  time last_pd_entry_time = 0;
+  time last_sr_exit_time = 0;
+
   // Initialization State
   typedef enum logic [2:0] {
     INIT_IDLE,
@@ -269,6 +280,8 @@ module hbm4_model (
         bank_idx = {aword.BG, aword.BA};
         
         // Protocol Check
+        if (power_state != PWR_ACTIVE) $error("[%0t] HBM4_PROTOCOL_ERROR: Command issued while in low-power state!", $time);
+        if (($time - last_sr_exit_time) < tXS && last_sr_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXS violation.", $time);
         if (bank_state[bank_idx] != BANK_IDLE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: ACTIVATE to already active bank %0d!", $time, bank_idx);
         end
