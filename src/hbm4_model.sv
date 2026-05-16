@@ -33,6 +33,35 @@ module hbm4_model (
   int ecc_sec_count = 0; // Single-bit errors corrected
   int ecc_ded_count = 0; // Double-bit errors detected
 
+  // Interconnect Redundancy Remap Table
+  // Per JESD270-4 §7.11: programmable via IEEE 1500 WSP (WIR=8'h02)
+  // Each entry maps a faulty row address to a spare row
+  localparam int REMAP_TABLE_SIZE = 16;
+  typedef struct packed {
+    logic        valid;
+    logic [1:0]  bg;      // bank group
+    logic [3:0]  ba;      // bank address
+    logic [ROW_WIDTH-1:0] faulty_row;
+    logic [ROW_WIDTH-1:0] spare_row;
+  } remap_entry_t;
+  remap_entry_t remap_table [REMAP_TABLE_SIZE];
+  int remap_count = 0;
+
+  // Remap address translation — returns remapped row or original if no match
+  function automatic logic [ROW_WIDTH-1:0] remap_row(
+    input logic [1:0] bg, input logic [3:0] ba, input logic [ROW_WIDTH-1:0] row
+  );
+    for (int i = 0; i < remap_count; i++) begin
+      if (remap_table[i].valid && remap_table[i].bg == bg &&
+          remap_table[i].ba == ba && remap_table[i].faulty_row == row) begin
+        $display("[%0t] HBM4_REMAP: Redirecting BG%0d BA%0d Row 0x%04h -> Spare 0x%04h",
+                 $time, bg, ba, row, remap_table[i].spare_row);
+        return remap_table[i].spare_row;
+      end
+    end
+    return row;
+  endfunction
+
   // Timing Trackers
   time last_act_time [NUM_BANKS];
   time last_pre_time [NUM_BANKS];
@@ -462,7 +491,7 @@ module hbm4_model (
 
         // Execute Command
         bank_state[bank_idx] <= BANK_ACTIVE;
-        active_row[bank_idx] <= aword.R_ADDR;
+        active_row[bank_idx] <= remap_row(aword.BG, aword.BA, aword.R_ADDR);
         last_act_time[bank_idx] <= $time;
         rfm_counter[bank_idx] <= rfm_counter[bank_idx] + 1; // RAA counter increment
         
@@ -1407,21 +1436,33 @@ module hbm4_model (
   logic [7:0] wir; // Wrapper Instruction Register
   logic [31:0] wbr; // Wrapper Boundary Register
   logic wby; // Wrapper Bypass Register
+
+  // Remap Register: {valid[36], bg[35:34], ba[33:30], faulty_row[29:15], spare_row[14:0]}
+  localparam int REMAP_REG_WIDTH = 1 + 2 + 4 + ROW_WIDTH + ROW_WIDTH; // 37 bits
+  logic [REMAP_REG_WIDTH-1:0] remap_reg;
+  logic [REMAP_REG_WIDTH-1:0] remap_shift;
   
   logic [7:0] wir_shift;
   logic [31:0] wbr_shift;
   logic wby_shift;
   
-  assign vif.WSO = (vif.SelectVR) ? wir_shift[0] : ((wir == 8'hFF) ? wby_shift : wbr_shift[0]);
+  // WSO mux: instruction reg, bypass, remap, or boundary
+  assign vif.WSO = (vif.SelectVR) ? wir_shift[0] :
+                   (wir == 8'hFF) ? wby_shift :
+                   (wir == 8'h02) ? remap_shift[0] : wbr_shift[0];
 
   always @(posedge vif.WRCK) begin
     if (!vif.RESET_n) begin
       wir <= 8'h00;
       wbr <= 32'h00000000;
       wby <= 1'b0;
+      remap_reg <= '0;
+      remap_shift <= '0;
       wir_shift <= 8'h00;
       wbr_shift <= 32'h00000000;
       wby_shift <= 1'b0;
+      for (int i = 0; i < REMAP_TABLE_SIZE; i++) remap_table[i].valid <= 1'b0;
+      remap_count <= 0;
     end else begin
       if (vif.SelectVR) begin
         // Instruction Register Access
@@ -1439,6 +1480,29 @@ module hbm4_model (
             wby_shift <= 1'b0;
           end else if (vif.ShiftWR) begin
             wby_shift <= vif.WSI;
+          end
+        end else if (wir == 8'h02) begin // Remap Register
+          if (vif.CaptureWR) begin
+            remap_shift <= remap_reg;
+          end else if (vif.ShiftWR) begin
+            remap_shift <= {vif.WSI, remap_shift[REMAP_REG_WIDTH-1:1]};
+          end else if (vif.UpdateWR) begin
+            remap_reg <= remap_shift;
+            // Program remap entry on update
+            if (remap_shift[REMAP_REG_WIDTH-1] && remap_count < REMAP_TABLE_SIZE) begin
+              remap_table[remap_count].valid <= 1'b1;
+              remap_table[remap_count].bg <= remap_shift[REMAP_REG_WIDTH-2 -: 2];
+              remap_table[remap_count].ba <= remap_shift[REMAP_REG_WIDTH-4 -: 4];
+              remap_table[remap_count].faulty_row <= remap_shift[2*ROW_WIDTH-1 -: ROW_WIDTH];
+              remap_table[remap_count].spare_row <= remap_shift[ROW_WIDTH-1:0];
+              remap_count <= remap_count + 1;
+              $display("[%0t] HBM4_REMAP: Programmed entry %0d: BG%0d BA%0d Row 0x%04h -> Spare 0x%04h",
+                       $time, remap_count,
+                       remap_shift[REMAP_REG_WIDTH-2 -: 2],
+                       remap_shift[REMAP_REG_WIDTH-4 -: 4],
+                       remap_shift[2*ROW_WIDTH-1 -: ROW_WIDTH],
+                       remap_shift[ROW_WIDTH-1:0]);
+            end
           end
         end else begin // Default to Boundary Register
           if (vif.CaptureWR) begin

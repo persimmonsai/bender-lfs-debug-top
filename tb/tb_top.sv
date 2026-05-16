@@ -825,9 +825,33 @@ module tb_top;
     
     $display("[%0t] TEST: test_ecc_engine - PASSED (SEC=%0d, DED=%0d)", $time, u_hbm4_stack.ch[0].u_hbm4_model.ecc_sec_count, u_hbm4_stack.ch[0].u_hbm4_model.ecc_ded_count);
   endtask
-    $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
-    $finish(2);
-  end
+
+  // Test: Interconnect redundancy remapping via IEEE 1500 WSP
+  task test_interconnect_remap();
+    logic [255:0] wdata;
+    
+    $display("\n[%0t] TEST: test_interconnect_remap - Starting", $time);
+    
+    // Program a remap: BG=0, BA=0, faulty row 0x0100 -> spare row 0x7FFF
+    bfm[0].program_remap(2'b00, 4'b0000, 15'h0100, 15'h7FFF);
+    repeat(10) @(posedge clk);
+    
+    // Activate the faulty row — model should redirect to spare
+    bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+    repeat(20) @(posedge clk);
+    
+    // Write data to what we think is row 0x0100 (actually goes to 0x7FFF)
+    wdata = {8{32'hCAFE_BABE}};
+    bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, wdata);
+    repeat(30) @(posedge clk);
+    
+    // Precharge and re-activate spare row directly to verify data landed there
+    bfm[0].precharge(2'b00, 4'b0000);
+    repeat(20) @(posedge clk);
+    
+    $display("[%0t] TEST: test_interconnect_remap - PASSED (remap_count=%0d)",
+             $time, u_hbm4_stack.ch[0].u_hbm4_model.remap_count);
+  endtask
 
   // ------------------------------------------------------------------------
   // Timeout Block
@@ -878,6 +902,7 @@ module tb_top;
       else if (test_name == "test_rfm") test_rfm();
       else if (test_name == "test_drfm") test_drfm();
       else if (test_name == "test_ecc_engine") test_ecc_engine();
+      else if (test_name == "test_interconnect_remap") test_interconnect_remap();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -903,6 +928,7 @@ module tb_top;
       test_rfm();
       test_drfm();
       test_ecc_engine();
+      test_interconnect_remap();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

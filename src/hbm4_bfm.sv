@@ -925,5 +925,60 @@ endfunction
     end
   endtask
 
+  // -----------------------------------------------------------------------
+  // IEEE 1500 WSP: Program Interconnect Remap Entry
+  // Shifts 37-bit remap data via WSI: {valid, bg[1:0], ba[3:0], faulty_row[14:0], spare_row[14:0]}
+  // -----------------------------------------------------------------------
+  task automatic program_remap(
+    input logic [1:0] bg, input logic [3:0] ba,
+    input logic [14:0] faulty_row, input logic [14:0] spare_row
+  );
+    localparam int REMAP_REG_WIDTH = 37;
+    logic [REMAP_REG_WIDTH-1:0] remap_data;
+    logic [7:0] wir_data;
+    int i;
+
+    remap_data = {1'b1, bg, ba, faulty_row, spare_row};
+    wir_data = 8'h02; // Remap instruction
+
+    $display("[%0t] BFM: Programming remap BG%0d BA%0d Row 0x%04h -> Spare 0x%04h",
+             $time, bg, ba, faulty_row, spare_row);
+
+    // Phase 1: Load WIR = 0x02 (remap opcode)
+    @(posedge vif.WRCK);
+    vif.SelectVR <= 1'b1;
+    @(posedge vif.WRCK);
+    vif.CaptureWR <= 1'b1;
+    @(posedge vif.WRCK);
+    vif.CaptureWR <= 1'b0;
+    vif.ShiftWR <= 1'b1;
+    for (i = 0; i < 8; i++) begin
+      vif.WSI <= wir_data[i];
+      @(posedge vif.WRCK);
+    end
+    vif.ShiftWR <= 1'b0;
+    vif.UpdateWR <= 1'b1;
+    @(posedge vif.WRCK);
+    vif.UpdateWR <= 1'b0;
+    vif.SelectVR <= 1'b0;
+
+    // Phase 2: Shift in remap data (37 bits, LSB first)
+    @(posedge vif.WRCK);
+    vif.CaptureWR <= 1'b1;
+    @(posedge vif.WRCK);
+    vif.CaptureWR <= 1'b0;
+    vif.ShiftWR <= 1'b1;
+    for (i = 0; i < REMAP_REG_WIDTH; i++) begin
+      vif.WSI <= remap_data[i];
+      @(posedge vif.WRCK);
+    end
+    vif.ShiftWR <= 1'b0;
+    vif.UpdateWR <= 1'b1;
+    @(posedge vif.WRCK);
+    vif.UpdateWR <= 1'b0;
+    
+    repeat(2) @(posedge vif.WRCK);
+  endtask
+
 endmodule
 `endif
