@@ -46,6 +46,11 @@ module hbm4_model (
   time last_refpb_time [NUM_BANKS];
   time last_mrs_time = 0;
 
+  // Per-Bank Refresh Rolling Window
+  // Track the start of the current refresh window per bank
+  time refpb_window_start [NUM_BANKS];
+  int  refpb_window_count [NUM_BANKS]; // REFpb count within current window
+
   // ZQ Calibration Trackers
   time last_zq_time = 0;
   logic zq_cal_pending = 0;
@@ -217,6 +222,8 @@ module hbm4_model (
       last_pre_time[i] = 0;
       last_bank_wr_time[i] = 0;
       last_bank_rd_time[i] = 0;
+      refpb_window_start[i] = 0;
+      refpb_window_count[i] = 0;
     end
   end
 
@@ -242,6 +249,8 @@ module hbm4_model (
         last_bank_wr_time[i] <= 0;
         last_bank_rd_time[i] <= 0;
         last_refpb_time[i] <= 0;
+        refpb_window_start[i] <= 0;
+        refpb_window_count[i] <= 0;
       end
       for (int i=0; i<4; i++) act_history[i] <= 0;
       last_global_act_time <= 0;
@@ -353,6 +362,10 @@ module hbm4_model (
         // Refresh Starvation Check
         if (($time - last_ref_time) > tREFI && last_ref_time != 0) begin
            $error("[%0t] HBM4_PROTOCOL_ERROR: Refresh Starvation! tREFI violation.", $time);
+        end
+        // Per-Bank Refresh Window Check
+        if (last_refpb_time[bank_idx] != 0 && ($time - last_refpb_time[bank_idx]) > tREFW) begin
+           $warning("[%0t] HBM4_PROTOCOL_WARNING: Per-bank refresh window (tREFW=%0t) exceeded for bank %0d. Last REFpb was %0t ago.", $time, tREFW, bank_idx, ($time - last_refpb_time[bank_idx]));
         end
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
@@ -487,7 +500,17 @@ module hbm4_model (
         end
 
         last_refpb_time[bank_idx] <= $time;
-        $display("[%0t] HBM4_MODEL: PER-BANK REFRESH Bank %0d", $time, bank_idx);
+        
+        // Rolling window tracking
+        if (refpb_window_start[bank_idx] == 0 || ($time - refpb_window_start[bank_idx]) >= tREFW) begin
+          // Start new window
+          refpb_window_start[bank_idx] <= $time;
+          refpb_window_count[bank_idx] <= 1;
+        end else begin
+          refpb_window_count[bank_idx] <= refpb_window_count[bank_idx] + 1;
+        end
+        
+        $display("[%0t] HBM4_MODEL: PER-BANK REFRESH Bank %0d (window count: %0d)", $time, bank_idx, refpb_window_count[bank_idx] + 1);
       end
       else if (aword.CMD == CMD_REF) begin
         // Check if all banks are idle

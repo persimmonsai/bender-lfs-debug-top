@@ -76,9 +76,11 @@ package hbm4_pkg;
   localparam time tRTP   = 4ns;  // MAX(4*tCK, 4ns)
 
   // Refresh & MRS Parameters
+  // Refresh Timings
   localparam time tRFC   = 260ns;
   localparam time tRFCpb = 130ns; // Per-Bank Refresh Cycle Time
   localparam time tREFI  = 3900ns; // 3.9us
+  localparam time tREFW  = 32000ns; // 32us Per-Bank Refresh Window
   localparam time tMOD   = 10ns;   // MRS update delay
   localparam time tMRD   = 10ns;   // MRS to MRS delay
 
