@@ -1,7 +1,7 @@
 # HBM4 Model - Spec Compliance Audit
 
 **Last updated:** 2026-05-16  
-**Status:** 30/32 items complete (93.8%)
+**Status:** 32/34 items complete (94.1%)
 
 This document tracks the known gaps between the current HBM4 simulation model and the official JESD270-4 specification.
 
@@ -76,12 +76,24 @@ All parameters now have both positive and negative test paths via `test_timing_v
 | tCL | 10ns | CAS latency — BFM uses as wait, model does not enforce |
 | tWL | 8ns | Write latency — BFM uses as wait, model does not enforce |
 | tRCD | 17ns | Legacy alias of max(tRCDRD, tRCDWR) — split params are modeled |
-| tRTP_S | 4ns | Read-to-precharge diff bank group — model only enforces tRTP_L |
+| tRTP_S | 4ns | Read-to-precharge diff bank group — model only enforces tRTP_L. Dead param removed. |
 | tRTP | 4ns | Legacy alias — model enforces tRTP_L regardless |
-| tMRD | 10ns | Mode register command-to-command delay |
-| tCKSRE | 10ns | Clock stop after self-refresh entry |
+| tMRD | 10ns | Mode register command-to-command delay. Dead param removed. |
+| tCKSRE | 10ns | Clock stop after self-refresh entry. Dead param removed. |
 
 ---
+
+## 10. Data Path & Functional Fixes (Session 2)
+- [x] **DQ bus drive** — Model now drives DQ/DBI via continuous assigns during reads. Previously returned all-x.
+- [x] **RDQS preamble alignment** — All 4 read preambles (PC0 read, PC0 MRR, PC1 read, PC1 MRR) end low for clean posedge data start.
+- [x] **WDQS preamble skip** — Model write capture skips 2 CK of preamble (4 WDQS edges) before sampling data. Fixes write data corruption.
+- [x] **Row address width** — `aword_t.R_ADDR` expanded from 5 to 15 bits (full ROW_WIDTH). AWORD bus widened to match.
+- [x] **tCPDED any-command tracking** — `last_any_cmd_time` updated at all 17 command sites (ACT, PRE, PREA, REF, REFpb, MRS, RD, WR, MRR, ZQC, RFM, etc.).
+- [x] **Power state gating** — RD/WR on both PCs now check power_state != PWR_ACTIVE before execution.
+- [x] **Trace decoder coverage** — Added decode for PREA, REFpb, MRR, PDX, SRX (previously shown as UNK).
+- [x] **BFM mode registers** — mode_reg_pc0/pc1 arrays expanded to [0:19] and updated during MRS writes.
+- [x] **Test suite** — Self-checking R/W test with backdoor verify, low-power negative tests enabled, 24-test regression suite complete.
+- [x] **Dead code cleanup** — Removed unused params (DQ_WIDTH_CH, COL_WIDTH, tRTP_S, tMRD, tCKSRE) and dead signals (pde_active_pc0/1, active_row_pc0/1).
 
 ## Spec Audit Findings (JESD270-4)
 
@@ -93,7 +105,7 @@ All parameters now have both positive and negative test paths via `test_timing_v
 ### 🟡 Medium Priority — Missing Timing Parameters
 - [x] **tRCDRD / tRCDWR** — Separate ACT-to-Read (17ns) vs ACT-to-Write (15ns) delays. All handlers updated.
 - [x] **tRTPL / tRTPS** — Bank-group-dependent read-to-precharge (tRTP_L=5ns, tRTP_S=4ns). PRE/PREA/AP use tRTP_L.
-- [x] **tCPDED** — Command-to-power-down entry delay (4ns). Enforced on PDE.
+- [x] **tCPDED** — Command-to-power-down entry delay (4ns). Enforced on PDE. Tracks last-of-any-command (all 17 command types).
 - [ ] **tCKPDE / tCKPDX** — Clock valid window before PDE / after PDX. Analog-level, not behaviorally modeled.
 - [x] **tWRPDE** — Write-to-power-down entry delay (28ns). Enforced on PDE for both PCs.
 - [x] **tDRFM** — DRFM cycle time (260ns). Enforced on consecutive DRFM to same bank.
