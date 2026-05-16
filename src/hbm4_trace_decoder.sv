@@ -28,6 +28,7 @@ module hbm4_trace_decoder #(
           CMD_MRS: $display("[%10t] TRACE [CH %2d]       AWORD : MRS  |", $time, CHANNEL_ID);
           CMD_REF: $display("[%10t] TRACE [CH %2d]       AWORD : REF  |", $time, CHANNEL_ID);
           CMD_SRE: $display("[%10t] TRACE [CH %2d]       AWORD : SRE  |", $time, CHANNEL_ID);
+          CMD_ZQ:  $display("[%10t] TRACE [CH %2d]       AWORD : ZQ   | TYPE=%s", $time, CHANNEL_ID, aword.BA[0] ? "ZQCL" : "ZQCS");
           default: $display("[%10t] TRACE [CH %2d]       AWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, aword.CMD);
         endcase
       end

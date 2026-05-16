@@ -633,6 +633,25 @@ endfunction
     end
   endtask
 
+  // Task to issue ZQ Calibration command
+  // zq_long: 0 = ZQCS (short), 1 = ZQCL (long)
+  task zq_calibrate(input logic zq_long);
+    begin
+      aword_t aword;
+      aword.CMD = CMD_ZQ;
+      aword.BG = '0;
+      aword.BA = {3'b0, zq_long};
+      aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= aword;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= '0; // NOP
+    end
+  endtask
+
   // Task to issue MRS command to PC0
   task mode_register_set_pc0(input logic [4:0] mr_idx, input logic [7:0] data);
     begin

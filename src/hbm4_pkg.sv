@@ -32,7 +32,8 @@ package hbm4_pkg;
     CMD_REFpb = 4'b1010,
     CMD_MRR   = 4'b1011,
     CMD_PDX   = 4'b1100,
-    CMD_SRX   = 4'b1101
+    CMD_SRX   = 4'b1101,
+    CMD_ZQ    = 4'b1110
   } hbm4_cmd_e;
 
   // AWORD (Row Command Bus) Structure
@@ -86,6 +87,10 @@ package hbm4_pkg;
   localparam time tXP    = 8ns;    // Power-Down Exit Time
   localparam time tXS    = 200ns;  // Self-Refresh Exit Delay
   localparam time tCKSRE = 10ns;   // Valid clock after Self-Refresh Entry
+
+  // ZQ Calibration Timings
+  localparam time tZQCS  = 128ns;  // ZQ Calibration Short
+  localparam time tZQCL  = 256ns;  // ZQ Calibration Long
 
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);

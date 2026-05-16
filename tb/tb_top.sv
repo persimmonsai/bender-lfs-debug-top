@@ -624,6 +624,27 @@ module tb_top;
     end
   endtask
 
+  task test_zq_calibration();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: ZQ Calibration (ZQCS/ZQCL)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Issuing ZQ Calibration Short (ZQCS)", $time);
+      u_hbm4_bfm[0].zq_calibrate(0);
+      #(tZQCS);
+      
+      $display("[%0t] TB_TOP: Issuing ZQ Calibration Long (ZQCL)", $time);
+      u_hbm4_bfm[0].zq_calibrate(1);
+      #(tZQCL);
+      
+      $display("[%0t] TB_TOP: ZQ Calibration test passed", $time);
+    end
+  endtask
+
   // ------------------------------------------------------------------------
   // Timeout Block
   // ------------------------------------------------------------------------
@@ -676,6 +697,7 @@ module tb_top;
       else if (test_name == "test_prea_refpb") test_prea_refpb();
       else if (test_name == "test_low_power_states") test_low_power_states();
       else if (test_name == "test_ieee1500") test_ieee1500();
+      else if (test_name == "test_zq_calibration") test_zq_calibration();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -695,6 +717,7 @@ module tb_top;
       test_timing_wtr();
       test_random_traffic();
       test_refresh_mechanics();
+      test_zq_calibration();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

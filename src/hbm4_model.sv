@@ -46,6 +46,10 @@ module hbm4_model (
   time last_refpb_time [NUM_BANKS];
   time last_mrs_time = 0;
 
+  // ZQ Calibration Trackers
+  time last_zq_time = 0;
+  logic zq_cal_pending = 0;
+
   // DBI Trackers
   logic [35:0] last_read_state_pc0 = '0; // {DBI[3:0], DQ[31:0]}
   logic [35:0] last_read_state_pc1 = '0;
@@ -207,6 +211,8 @@ module hbm4_model (
       last_pd_entry_time <= 0;
       last_pd_exit_time <= 0;
       last_sr_exit_time <= 0;
+      last_zq_time <= 0;
+      zq_cal_pending <= 0;
     end else begin
       // Decode AWORD command
       aword_t aword;
@@ -506,6 +512,27 @@ module hbm4_model (
         power_state <= PWR_ACTIVE;
         last_sr_exit_time <= $time;
         $display("[%0t] HBM4_MODEL: SELF-REFRESH EXIT", $time);
+      end
+      else if (aword.CMD == CMD_ZQ) begin
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: ZQ calibration issued while not in ACTIVE state!", $time);
+        end
+        // ZQ cal type determined by BA[0]: 0=Short (ZQCS), 1=Long (ZQCL)
+        if (aword.BA[0]) begin
+          // ZQCL - long calibration
+          if (($time - last_zq_time) < tZQCL && last_zq_time != 0) begin
+            $error("[%0t] HBM4_TIMING_ERROR: tZQCL violation. Previous ZQ cal too recent.", $time);
+          end
+          $display("[%0t] HBM4_MODEL: ZQ CALIBRATION LONG (ZQCL)", $time);
+        end else begin
+          // ZQCS - short calibration
+          if (($time - last_zq_time) < tZQCS && last_zq_time != 0) begin
+            $error("[%0t] HBM4_TIMING_ERROR: tZQCS violation. Previous ZQ cal too recent.", $time);
+          end
+          $display("[%0t] HBM4_MODEL: ZQ CALIBRATION SHORT (ZQCS)", $time);
+        end
+        last_zq_time <= $time;
+        zq_cal_pending <= 1;
       end
       end // End of initialized condition
       end // End of parity else block
