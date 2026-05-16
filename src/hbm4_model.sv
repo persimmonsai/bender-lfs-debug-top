@@ -32,6 +32,7 @@ module hbm4_model (
   // ECC statistics counters
   int ecc_sec_count = 0; // Single-bit errors corrected
   int ecc_ded_count = 0; // Double-bit errors detected
+  int timing_violation_count = 0; // Incremented on each timing error
 
   // Interconnect Redundancy Remap Table
   // Per JESD270-4 §7.11: programmable via IEEE 1500 WSP (WIR=8'h02)
@@ -391,6 +392,7 @@ module hbm4_model (
         automatic int mr_idx = {dword_pc0.C, dword_pc0.BA};
         // tXSMRS: MRS not allowed too soon after Self-Refresh Exit
         if (last_sr_exit_time != 0 && ($time - last_sr_exit_time) < tXSMRS) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tXSMRS violation on MRS PC0. SR exit was %0t ago, minimum is %0t.", $time, ($time - last_sr_exit_time), tXSMRS);
         end
         mode_reg_pc0[mr_idx] <= {dword_pc0.BG, dword_pc0.C_ADDR};
@@ -401,6 +403,7 @@ module hbm4_model (
       if (dword_pc1.CMD == CMD_MRS) begin
         automatic int mr_idx = {dword_pc1.C, dword_pc1.BA};
         if (last_sr_exit_time != 0 && ($time - last_sr_exit_time) < tXSMRS) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tXSMRS violation on MRS PC1. SR exit was %0t ago, minimum is %0t.", $time, ($time - last_sr_exit_time), tXSMRS);
         end
         mode_reg_pc1[mr_idx] <= {dword_pc1.BG, dword_pc1.C_ADDR};
@@ -426,8 +429,14 @@ module hbm4_model (
         
         // Protocol Check
         if (power_state != PWR_ACTIVE) $error("[%0t] HBM4_PROTOCOL_ERROR: Command issued while in low-power state!", $time);
-        if (($time - last_sr_exit_time) < tXS && last_sr_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXS violation.", $time);
-        if (($time - last_pd_exit_time) < tXP && last_pd_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXP violation. Expected %0t, got %0t.", $time, tXP, ($time - last_pd_exit_time));
+        if (($time - last_sr_exit_time) < tXS && last_sr_exit_time != 0) begin
+          timing_violation_count++;
+          $error("[%0t] HBM4_TIMING_ERROR: tXS violation.", $time);
+        end
+        if (($time - last_pd_exit_time) < tXP && last_pd_exit_time != 0) begin
+          timing_violation_count++;
+          $error("[%0t] HBM4_TIMING_ERROR: tXP violation. Expected %0t, got %0t.", $time, tXP, ($time - last_pd_exit_time));
+        end
         
         // DRFM: Directed Refresh Management (ACT with DRFM bit set)
         if (aword.R_ADDR[DRFM_BIT]) begin
@@ -435,6 +444,7 @@ module hbm4_model (
             $error("[%0t] HBM4_PROTOCOL_ERROR: DRFM to active bank %0d!", $time, bank_idx);
           end
           if (($time - last_drfm_time[bank_idx]) < tDRFM && last_drfm_time[bank_idx] != 0) begin
+          timing_violation_count++;
             $error("[%0t] HBM4_TIMING_ERROR: tDRFM violation on bank %0d.", $time, bank_idx);
           end
           
@@ -458,25 +468,30 @@ module hbm4_model (
         end
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on ACTIVATE. Command issued during refresh.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on ACTIVATE. Command issued too soon after MRS.", $time);
         end
         
         // Timing Check: tRP
         if (($time - last_pre_time[bank_idx]) < tRP && last_pre_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRP violation on bank %0d. Expected %0t, got %0t", $time, bank_idx, tRP, ($time - last_pre_time[bank_idx]));
         end
         
         // Timing Check: tRC
         if (($time - last_act_time[bank_idx]) < tRC && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRC violation on bank %0d. Expected %0t, got %0t", $time, bank_idx, tRC, ($time - last_act_time[bank_idx]));
         end
 
         // Timing Check: tFAW
         if (($time - act_history[3]) < tFAW && act_history[3] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tFAW violation. 5th ACTIVATE issued within %0t (< %0t)", $time, ($time - act_history[3]), tFAW);
         end
 
@@ -485,6 +500,7 @@ module hbm4_model (
           time trrd_val;
           trrd_val = (aword.BG == last_act_bg) ? tRRD_L : tRRD_S;
           if (($time - last_global_act_time) < trrd_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tRRD violation. Expected %0t, got %0t", $time, trrd_val, ($time - last_global_act_time));
           end
         end
@@ -525,25 +541,30 @@ module hbm4_model (
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on PRECHARGE.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on PRECHARGE.", $time);
         end
         
         // Timing Check: tRAS
         if (($time - last_act_time[bank_idx]) < tRAS && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRAS violation on bank %0d. Expected %0t, got %0t", $time, bank_idx, tRAS, ($time - last_act_time[bank_idx]));
         end
         
         // Timing Check: tWR
         if (($time - last_bank_wr_time[bank_idx]) < tWR && last_bank_wr_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tWR violation on PRECHARGE bank %0d. Expected %0t, got %0t", $time, bank_idx, tWR, ($time - last_bank_wr_time[bank_idx]));
         end
         
         // Timing Check: tRTP (same bank group → tRTP_L)
         if (($time - last_bank_rd_time[bank_idx]) < tRTP_L && last_bank_rd_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PRECHARGE bank %0d. Expected %0t, got %0t", $time, bank_idx, tRTP_L, ($time - last_bank_rd_time[bank_idx]));
         end
         
@@ -555,10 +576,12 @@ module hbm4_model (
       else if (aword.CMD == CMD_PREA) begin
         // Check tRFC
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on PREA.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on PREA.", $time);
         end
         
@@ -566,14 +589,17 @@ module hbm4_model (
           if (bank_state[i] == BANK_ACTIVE) begin
             // Timing Check: tRAS
             if (($time - last_act_time[i]) < tRAS && last_act_time[i] != 0) begin
+          timing_violation_count++;
               $error("[%0t] HBM4_TIMING_ERROR: tRAS violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRAS, ($time - last_act_time[i]));
             end
             // Timing Check: tWR
             if (($time - last_bank_wr_time[i]) < tWR && last_bank_wr_time[i] != 0) begin
+          timing_violation_count++;
               $error("[%0t] HBM4_TIMING_ERROR: tWR violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tWR, ($time - last_bank_wr_time[i]));
             end
             // Timing Check: tRTP (same bank → tRTP_L)
             if (($time - last_bank_rd_time[i]) < tRTP_L && last_bank_rd_time[i] != 0) begin
+          timing_violation_count++;
               $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRTP_L, ($time - last_bank_rd_time[i]));
             end
             
@@ -592,14 +618,17 @@ module hbm4_model (
         end
         // Check tRFCpb
         if (($time - last_refpb_time[bank_idx]) < tRFCpb && last_refpb_time[bank_idx] != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFCpb violation on REFpb bank %0d.", $time, bank_idx);
         end
         // Also respect all-bank refresh
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on REFpb.", $time);
         end
         // tRREFD: minimum delay between consecutive REFpb commands
         if (($time - last_refpb_any_time) < tRREFD && last_refpb_any_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRREFD violation on REFpb bank %0d. Expected %0t, got %0t", $time, bank_idx, tRREFD, ($time - last_refpb_any_time));
         end
 
@@ -626,6 +655,7 @@ module hbm4_model (
         end
         // Check tRFC
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on REF.", $time);
         end
         last_ref_time <= $time;
@@ -637,13 +667,16 @@ module hbm4_model (
         end
         // tCPDED: minimum delay from last command to PDE
         if (last_global_act_time != 0 && ($time - last_global_act_time) < tCPDED) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tCPDED violation on PDE. Last command was %0t ago, minimum is %0t.", $time, ($time - last_global_act_time), tCPDED);
         end
         // tWRPDE: write recovery must complete before PDE
         if (last_wr_time_pc0 != 0 && ($time - last_wr_time_pc0) < tWRPDE) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tWRPDE violation on PDE (PC0 write too recent).", $time);
         end
         if (last_wr_time_pc1 != 0 && ($time - last_wr_time_pc1) < tWRPDE) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tWRPDE violation on PDE (PC1 write too recent).", $time);
         end
         // Determine pre-PD or active-PD based on bank states
@@ -666,6 +699,7 @@ module hbm4_model (
         end
         // Check tPD minimum
         if (($time - last_pd_entry_time) < tPD && last_pd_entry_time != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tPD violation on PDX. Power-Down held for %0t, minimum is %0t.", $time, ($time - last_pd_entry_time), tPD);
         end
         power_state <= PWR_ACTIVE;
@@ -701,12 +735,14 @@ module hbm4_model (
         if (aword.BA[0]) begin
           // ZQCL - long calibration
           if (($time - last_zq_time) < tZQCL && last_zq_time != 0) begin
+          timing_violation_count++;
             $error("[%0t] HBM4_TIMING_ERROR: tZQCL violation. Previous ZQ cal too recent.", $time);
           end
           $display("[%0t] HBM4_MODEL: ZQ CALIBRATION LONG (ZQCL)", $time);
         end else begin
           // ZQCS - short calibration
           if (($time - last_zq_time) < tZQCS && last_zq_time != 0) begin
+          timing_violation_count++;
             $error("[%0t] HBM4_TIMING_ERROR: tZQCS violation. Previous ZQ cal too recent.", $time);
           end
           $display("[%0t] HBM4_MODEL: ZQ CALIBRATION SHORT (ZQCS)", $time);
@@ -728,6 +764,7 @@ module hbm4_model (
             $error("[%0t] HBM4_PROTOCOL_ERROR: RFMpb issued to ACTIVE bank %0d!", $time, bank_idx);
           end
           if (($time - last_rfmpb_time[bank_idx]) < tRFMpb && last_rfmpb_time[bank_idx] != 0) begin
+          timing_violation_count++;
             $error("[%0t] HBM4_TIMING_ERROR: tRFMpb violation on bank %0d.", $time, bank_idx);
           end
           
@@ -742,6 +779,7 @@ module hbm4_model (
             end
           end
           if (($time - last_rfm_time) < tRFM && last_rfm_time != 0) begin
+          timing_violation_count++;
             $error("[%0t] HBM4_TIMING_ERROR: tRFM violation on RFMab.", $time);
           end
           
@@ -814,15 +852,18 @@ module hbm4_model (
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on WRITE PC0.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on WRITE PC0.", $time);
         end
         
         // Timing Check: tRCDWR
         if (($time - last_act_time[bank_idx]) < tRCDWR && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRCDWR violation on WRITE PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDWR, ($time - last_act_time[bank_idx]));
         end
         
@@ -831,12 +872,14 @@ module hbm4_model (
           time tccd_val;
           tccd_val = (dword_pc0.BG == last_wr_bg_pc0) ? tCCD_L : tCCD_S;
           if (($time - last_wr_time_pc0) < tccd_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on WRITE PC0. Expected %0t, got %0t", $time, tccd_val, ($time - last_wr_time_pc0));
           end
         end
         
         // Timing Check: tRTW (RD to WR)
         if (($time - last_rd_time_pc0) < tRTW && last_rd_time_pc0 != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRTW violation on WRITE PC0. Expected %0t, got %0t", $time, tRTW, ($time - last_rd_time_pc0));
         end
         
@@ -934,15 +977,18 @@ module hbm4_model (
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on READ PC0.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on READ PC0.", $time);
         end
         
         // Timing Check: tRCDRD
         if (($time - last_act_time[bank_idx]) < tRCDRD && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRCDRD violation on READ PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDRD, ($time - last_act_time[bank_idx]));
         end
         
@@ -951,6 +997,7 @@ module hbm4_model (
           time tccd_val;
           tccd_val = (dword_pc0.BG == last_rd_bg_pc0) ? tCCD_L : tCCD_S;
           if (($time - last_rd_time_pc0) < tccd_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on READ PC0. Expected %0t, got %0t", $time, tccd_val, ($time - last_rd_time_pc0));
           end
         end
@@ -960,6 +1007,7 @@ module hbm4_model (
           time twtr_val;
           twtr_val = (dword_pc0.BG == last_wr_bg_pc0) ? tWTR_L : tWTR_S;
           if (($time - last_wr_time_pc0) < twtr_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tWTR violation on READ PC0. Expected %0t, got %0t", $time, twtr_val, ($time - last_wr_time_pc0));
           end
         end
@@ -1135,15 +1183,18 @@ module hbm4_model (
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on WRITE PC1.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on WRITE PC1.", $time);
         end
         
         // Timing Check: tRCDWR
         if (($time - last_act_time[bank_idx]) < tRCDWR && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRCDWR violation on WRITE PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDWR, ($time - last_act_time[bank_idx]));
         end
         
@@ -1152,12 +1203,14 @@ module hbm4_model (
           time tccd_val;
           tccd_val = (dword_pc1.BG == last_wr_bg_pc1) ? tCCD_L : tCCD_S;
           if (($time - last_wr_time_pc1) < tccd_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on WRITE PC1. Expected %0t, got %0t", $time, tccd_val, ($time - last_wr_time_pc1));
           end
         end
         
         // Timing Check: tRTW (RD to WR)
         if (($time - last_rd_time_pc1) < tRTW && last_rd_time_pc1 != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRTW violation on WRITE PC1. Expected %0t, got %0t", $time, tRTW, ($time - last_rd_time_pc1));
         end
         
@@ -1248,15 +1301,18 @@ module hbm4_model (
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on READ PC1.", $time);
         end
         // tMOD Check
         if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+          timing_violation_count++;
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on READ PC1.", $time);
         end
         
         // Timing Check: tRCDRD
         if (($time - last_act_time[bank_idx]) < tRCDRD && last_act_time[bank_idx] != 0) begin
+          timing_violation_count++;
           $error("[%0t] HBM4_TIMING_ERROR: tRCDRD violation on READ PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDRD, ($time - last_act_time[bank_idx]));
         end
         
@@ -1265,6 +1321,7 @@ module hbm4_model (
           time tccd_val;
           tccd_val = (dword_pc1.BG == last_rd_bg_pc1) ? tCCD_L : tCCD_S;
           if (($time - last_rd_time_pc1) < tccd_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tCCD violation on READ PC1. Expected %0t, got %0t", $time, tccd_val, ($time - last_rd_time_pc1));
           end
         end
@@ -1274,6 +1331,7 @@ module hbm4_model (
           time twtr_val;
           twtr_val = (dword_pc1.BG == last_wr_bg_pc1) ? tWTR_L : tWTR_S;
           if (($time - last_wr_time_pc1) < twtr_val) begin
+          timing_violation_count++;
              $error("[%0t] HBM4_TIMING_ERROR: tWTR violation on READ PC1. Expected %0t, got %0t", $time, twtr_val, ($time - last_wr_time_pc1));
           end
         end
