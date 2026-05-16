@@ -640,16 +640,19 @@ module tb_top;
       u_hbm4_bfm[0].enter_self_refresh();
       #(20ns);
       
-      // $display("[%0t] TB_TOP: Expecting Command Error (ACT while in SRE)", $time);
-      // u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      $display("[%0t] TB_TOP: Expecting Command Error (ACT while in SRE)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(2ns);
       
       $display("[%0t] TB_TOP: Exiting Self-Refresh", $time);
       u_hbm4_bfm[0].exit_self_refresh();
       
       // Attempt immediate ACT (tXS violation)
-      // #(10ns);
-      // $display("[%0t] TB_TOP: Expecting tXS Timing Error", $time);
-      // u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(2ns);
+      $display("[%0t] TB_TOP: Expecting tXS Timing Error", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(2ns);
+      u_hbm4_bfm[0].precharge_all();
       
       #(tXS); // Wait full tXS
       $display("[%0t] TB_TOP: Issuing valid ACT after tXS", $time);
