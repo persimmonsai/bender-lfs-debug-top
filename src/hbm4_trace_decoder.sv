@@ -36,8 +36,8 @@ module hbm4_trace_decoder #(
       // Decode DWORD_PC0 (Column Commands)
       if (dword_pc0.CMD != CMD_NOP) begin
         case (dword_pc0.CMD)
-          CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : RD   | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
-          CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : WR   | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
+          CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
+          CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
           CMD_MRS: $display("[%10t] TRACE [CH %2d] [PC0] DWORD : MRS  | BG=%-2d | BA=%-2d | OP=0x%04h", $time, CHANNEL_ID, dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
           default: $display("[%10t] TRACE [CH %2d] [PC0] DWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, dword_pc0.CMD);
         endcase
@@ -46,8 +46,8 @@ module hbm4_trace_decoder #(
       // Decode DWORD_PC1 (Column Commands)
       if (dword_pc1.CMD != CMD_NOP) begin
         case (dword_pc1.CMD)
-          CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : RD   | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
-          CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : WR   | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
+          CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
+          CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
           CMD_MRS: $display("[%10t] TRACE [CH %2d] [PC1] DWORD : MRS  | BG=%-2d | BA=%-2d | OP=0x%04h", $time, CHANNEL_ID, dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
           default: $display("[%10t] TRACE [CH %2d] [PC1] DWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, dword_pc1.CMD);
         endcase

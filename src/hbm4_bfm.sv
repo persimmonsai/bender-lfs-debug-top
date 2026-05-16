@@ -633,7 +633,7 @@ endfunction
     end
   endtask
 
-  // Task to issue ZQ Calibration command
+   // Task to issue ZQ Calibration command
   // zq_long: 0 = ZQCS (short), 1 = ZQCL (long)
   task zq_calibrate(input logic zq_long);
     begin
@@ -650,6 +650,32 @@ endfunction
       @(posedge vif.CK_t);
       vif.AWORD <= '0; // NOP
     end
+  endtask
+
+  // Write with Auto-Precharge (WRA) — sets AP_BIT in column address
+  task automatic write_ap_pc0(input logic [1:0] bg, input logic [3:0] ba, input logic [4:0] col, input logic [255:0] data);
+    logic [5:0] col_ap;
+    col_ap = {1'b1, col};  // Set AP_BIT (bit 5)
+    write_pc0(bg, ba, col_ap, data);
+  endtask
+
+  task automatic write_ap_pc1(input logic [1:0] bg, input logic [3:0] ba, input logic [4:0] col, input logic [255:0] data);
+    logic [5:0] col_ap;
+    col_ap = {1'b1, col};
+    write_pc1(bg, ba, col_ap, data);
+  endtask
+
+  // Read with Auto-Precharge (RDA) — sets AP_BIT in column address
+  task automatic read_ap_pc0(input logic [1:0] bg, input logic [3:0] ba, input logic [4:0] col);
+    logic [5:0] col_ap;
+    col_ap = {1'b1, col};
+    read_pc0(bg, ba, col_ap);
+  endtask
+
+  task automatic read_ap_pc1(input logic [1:0] bg, input logic [3:0] ba, input logic [4:0] col);
+    logic [5:0] col_ap;
+    col_ap = {1'b1, col};
+    read_pc1(bg, ba, col_ap);
   endtask
 
   // Task to issue MRS command to PC0

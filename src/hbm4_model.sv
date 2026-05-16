@@ -739,6 +739,14 @@ module hbm4_model (
               end
               mem_array_pc0[addr] = write_data;
               
+              // Auto-Precharge: close bank after write recovery (tWR)
+              if (c_addr[AP_BIT]) begin
+                #(tWR);
+                bank_state[b_idx] <= BANK_IDLE;
+                last_pre_time[b_idx] <= $time;
+                $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (WRA) Bank %0d", $time, b_idx);
+              end
+              
               // Reset Read DBI state on write-to-read turnaround (as per spec)
               last_read_state_pc0 = '0;
             end
@@ -853,6 +861,14 @@ module hbm4_model (
               vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
               read_valid_pc0 = 0;
+              
+              // Auto-Precharge: close bank after tRTP
+              if (dword_pc0.C_ADDR[AP_BIT]) begin
+                #(tRTP);
+                bank_state[b_idx] <= BANK_IDLE;
+                last_pre_time[b_idx] <= $time;
+                $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (RDA) Bank %0d", $time, b_idx);
+              end
             end
           join_none
         end
@@ -981,6 +997,15 @@ module hbm4_model (
                 end
               end
               mem_array_pc1[addr] = write_data;
+              
+              // Auto-Precharge: close bank after write recovery (tWR)
+              if (c_addr[AP_BIT]) begin
+                #(tWR);
+                bank_state[b_idx] <= BANK_IDLE;
+                last_pre_time[b_idx] <= $time;
+                $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (WRA) PC1 Bank %0d", $time, b_idx);
+              end
+              
               last_read_state_pc1 = '0;
             end
           join_none
@@ -1062,7 +1087,14 @@ module hbm4_model (
               vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
               read_valid_pc1 = 0;
-            end
+              
+              // Auto-Precharge: close bank after tRTP
+              if (dword_pc1.C_ADDR[AP_BIT]) begin
+                #(tRTP);
+                bank_state[b_idx] <= BANK_IDLE;
+                last_pre_time[b_idx] <= $time;
+                $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (RDA) PC1 Bank %0d", $time, b_idx);
+              end
           join_none
         end
       end

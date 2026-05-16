@@ -691,11 +691,44 @@ module tb_top;
     end
   endtask
 
-  // ------------------------------------------------------------------------
-  // Timeout Block
-  // ------------------------------------------------------------------------
-  initial begin
-    #(50ms);
+  // Test: Write/Read with Auto-Precharge (WRA/RDA)
+  task test_auto_precharge();
+    logic [1:0] bg;
+    logic [3:0] ba;
+    logic [255:0] wdata;
+    
+    $display("\n[%0t] TEST: test_auto_precharge - Starting", $time);
+    
+    bg = 2'b01;
+    ba = 4'b0010;
+    wdata = {8{32'hCAFE_BABE}};
+    
+    // Activate the bank
+    bfm[0].activate(bg, ba, 15'h0100);
+    repeat(20) @(posedge clk);
+    
+    // Write with Auto-Precharge — bank should close automatically after tWR
+    bfm[0].write_ap_pc0(bg, ba, 5'h04, wdata);
+    repeat(40) @(posedge clk);
+    
+    // Bank should now be idle — re-activate should succeed without error
+    bfm[0].activate(bg, ba, 15'h0100);
+    repeat(20) @(posedge clk);
+    
+    // Read with Auto-Precharge — bank should close automatically after tRTP
+    bfm[0].read_ap_pc0(bg, ba, 5'h04);
+    repeat(30) @(posedge clk);
+    
+    // Bank should now be idle — re-activate should succeed without error
+    bfm[0].activate(bg, ba, 15'h0200);
+    repeat(20) @(posedge clk);
+    
+    // Clean up
+    bfm[0].precharge(bg, ba);
+    repeat(20) @(posedge clk);
+    
+    $display("[%0t] TEST: test_auto_precharge - PASSED", $time);
+  endtask
     $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
     $finish(2);
   end
@@ -745,6 +778,7 @@ module tb_top;
       else if (test_name == "test_ieee1500") test_ieee1500();
       else if (test_name == "test_zq_calibration") test_zq_calibration();
       else if (test_name == "test_cattrip_temperature") test_cattrip_temperature();
+      else if (test_name == "test_auto_precharge") test_auto_precharge();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -766,6 +800,7 @@ module tb_top;
       test_refresh_mechanics();
       test_zq_calibration();
       test_cattrip_temperature();
+      test_auto_precharge();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

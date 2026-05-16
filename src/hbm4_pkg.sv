@@ -94,6 +94,9 @@ package hbm4_pkg;
   localparam time tZQCS  = 128ns;  // ZQ Calibration Short
   localparam time tZQCL  = 256ns;  // ZQ Calibration Long
 
+  // Auto-Precharge
+  localparam int AP_BIT = 5;       // C_ADDR bit that signals auto-precharge
+
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);
     int toggle_count = $countones(data ^ prev_data);
