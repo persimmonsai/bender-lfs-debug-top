@@ -110,9 +110,16 @@ module tb_top;
 
   task test_basic_rw_bursts();
     begin
+      logic [255:0] expected_pc0, expected_pc1;
+      logic [255:0] actual_pc0, actual_pc1;
+      int addr;
+      
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: Basic Read/Write Bursts", $time);
       $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      expected_pc0 = 256'hA5A5A5A5_5A5A5A5A_11223344_FFEEDDCC_00112233_44556677_8899AABB_CCDDEEFF;
+      expected_pc1 = 256'h01234567_89ABCDEF_FEDCBA98_76543210_01234567_89ABCDEF_FEDCBA98_76543210;
       
       $display("[%0t] TB_TOP: Issuing ACTIVATE to PC0 and PC1 Bank 0 Row 0x100", $time);
       fork
@@ -124,8 +131,8 @@ module tb_top;
       
       $display("[%0t] TB_TOP: Issuing WRITE to PC0 and PC1 Bank 0 Col 0x10", $time);
       fork
-        u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h10, 256'hA5A5A5A5_5A5A5A5A_11223344_FFEEDDCC_00112233_44556677_8899AABB_CCDDEEFF);
-        u_hbm4_bfm[31].write_pc1(2'b00, 4'b0000, 6'h10, 256'h01234567_89ABCDEF_FEDCBA98_76543210_01234567_89ABCDEF_FEDCBA98_76543210);
+        u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h10, expected_pc0);
+        u_hbm4_bfm[31].write_pc1(2'b00, 4'b0000, 6'h10, expected_pc1);
       join
       
       #(tWL + tCL + tWR + 20ns);
@@ -137,6 +144,23 @@ module tb_top;
       join
       
       #(tCL + 10ns); // Wait for read
+      
+      // Verify write path via backdoor memory check
+      addr = {2'b00, 4'b0000, 15'h0100, 6'h10};
+      actual_pc0 = u_hbm4_stack.ch[0].u_hbm4_model.mem_array_pc0[addr];
+      actual_pc1 = u_hbm4_stack.ch[31].u_hbm4_model.mem_array_pc1[addr];
+      
+      if (actual_pc0 !== expected_pc0) begin
+        $error("[%0t] TB_TOP: FAIL - PC0 write data mismatch!\n  Expected: %064h\n  Actual:   %064h", $time, expected_pc0, actual_pc0);
+      end else begin
+        $display("[%0t] TB_TOP: PASS - PC0 write data matches", $time);
+      end
+      
+      if (actual_pc1 !== expected_pc1) begin
+        $error("[%0t] TB_TOP: FAIL - PC1 write data mismatch!\n  Expected: %064h\n  Actual:   %064h", $time, expected_pc1, actual_pc1);
+      end else begin
+        $display("[%0t] TB_TOP: PASS - PC1 write data matches", $time);
+      end
     end
   endtask
 

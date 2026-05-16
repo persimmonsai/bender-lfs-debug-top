@@ -263,6 +263,12 @@ module hbm4_model (
   logic [3:0]  read_dbi_pc0;
   logic [3:0]  read_dbi_pc1;
 
+  // Drive DQ/DBI buses during read bursts (model → controller direction)
+  assign vif.DQ_PC0  = read_valid_pc0 ? read_data_pc0 : 32'hz;
+  assign vif.DBI_PC0 = read_valid_pc0 ? read_dbi_pc0  : 4'hz;
+  assign vif.DQ_PC1  = read_valid_pc1 ? read_data_pc1 : 32'hz;
+  assign vif.DBI_PC1 = read_valid_pc1 ? read_dbi_pc1  : 4'hz;
+
   initial begin
     read_valid_pc0 = 0;
     read_valid_pc1 = 0;
@@ -906,6 +912,12 @@ module hbm4_model (
               automatic logic dm_en = (mode_reg_pc0[0][3] == 1'b1);
               repeat(dynamic_wl) @(posedge vif.CK_t);
               
+              // Skip write preamble (model starts 1 CK into the 2 CK preamble)
+              repeat(2) begin
+                @(posedge vif.WDQS_t_PC0);
+                @(negedge vif.WDQS_t_PC0);
+              end
+              
               write_data = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
               write_mask = '0;
               
@@ -1033,11 +1045,11 @@ module hbm4_model (
               // Wait for RL (preamble starts 2 tCK early)
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
-              // Drive Preamble (4 WCK pulses)
-              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
+              // Drive Preamble (2 tCK = 4 WCK half-cycles, ends low for clean data posedge)
               vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
               // Loopback mode: return last written data instead of memory contents
@@ -1128,10 +1140,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble
-              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
               
@@ -1233,6 +1245,12 @@ module hbm4_model (
               automatic logic wdbi_en = (mode_reg_pc1[0][1] == 1'b1);
               automatic logic dm_en = (mode_reg_pc1[0][3] == 1'b1);
               repeat(dynamic_wl) @(posedge vif.CK_t);
+              
+              // Skip write preamble (model starts 1 CK into the 2 CK preamble)
+              repeat(2) begin
+                @(posedge vif.WDQS_t_PC1);
+                @(negedge vif.WDQS_t_PC1);
+              end
               
               write_data = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
               
@@ -1357,11 +1375,11 @@ module hbm4_model (
               // Wait for RL (preamble starts 2 tCK early)
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
-              // Drive Preamble (4 WCK pulses)
-              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
+              // Drive Preamble (2 tCK = 4 WCK half-cycles, ends low for clean data posedge)
               vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               if (mode_reg_pc1[7][0])
@@ -1449,10 +1467,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble
-              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
               vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               

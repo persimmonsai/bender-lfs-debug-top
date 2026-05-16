@@ -194,7 +194,7 @@ endfunction
       aword.CMD = CMD_ACT;
       aword.BG = bg;
       aword.BA = ba;
-      aword.R_ADDR = row; // Simplified
+      aword.R_ADDR = row;
       aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);

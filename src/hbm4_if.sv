@@ -18,7 +18,7 @@ interface hbm4_if (
   logic CATTRIP; // Catastrophic Temperature Trip
 
   // AWORD (Row Command/Address)
-  logic [15:0] AWORD;
+  logic [$bits(aword_t)-1:0] AWORD;
 
   // DWORD (Column Command/Address)
   // Actually, JESD270-4 has DWORD split or multiplexed, let's represent it simply for simulation.

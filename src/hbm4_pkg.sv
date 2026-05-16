@@ -44,7 +44,7 @@ package hbm4_pkg;
   // AWORD (Row Command Bus) Structure
   typedef struct packed {
     logic       R;      // Reserved / Parity
-    logic [4:0] R_ADDR; // Row Address portions
+    logic [ROW_WIDTH-1:0] R_ADDR; // Row Address (full width, behavioral abstraction)
     logic [3:0] BA;     // Bank Address
     logic [1:0] BG;     // Bank Group
     logic [3:0] CMD;    // Command
