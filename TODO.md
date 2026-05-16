@@ -26,3 +26,42 @@ This document tracks the known gaps between the current HBM4 simulation model an
 ## 6. Previously Undocumented Gaps (Now Fixed)
 - [x] MRR (Mode Register Read) readback path in model
 - [x] Low-power state machine (PDE/PDX/SRE/SRX command handlers with proper state transitions)
+
+---
+
+## Spec Audit Findings (JESD270-4)
+
+### 🔴 High Priority — Missing Commands
+- [ ] **RDA / WRA** — Read/Write with Auto-Precharge (§6.3.3, Table 34). Column commands that automatically precharge the bank after the burst completes. Not implemented.
+- [ ] **RFMab / RFMpb** — Refresh Management commands (Table 40, §6.3.4). Adaptive refresh management to mitigate row-hammer. No command encoding or handler.
+- [ ] **DRFM** — Directed Refresh Management via ACT variant (Table 33). ACT with DRFM bit not decoded.
+
+### 🟡 Medium Priority — Missing Timing Parameters
+- [ ] **tRCDRD / tRCDWR** — Separate ACT-to-Read vs ACT-to-Write delays (§6.3.1). Model uses a single `tRCD` for both.
+- [ ] **tRTPL / tRTPS** — Bank-group-dependent read-to-precharge timing. Model uses a single `tRTP`.
+- [ ] **tCPDED** — Command-to-power-down entry delay (§Power-Down). Not enforced.
+- [ ] **tCKPDE / tCKPDX** — Clock valid window before PDE / after PDX (§7828–7830). Not enforced.
+- [ ] **tWRPDE / tWRAPDE** — Write-to-power-down entry delay (§Power-Down). Not enforced.
+- [ ] **tDRFM / tDRFM2PRE** — DRFM-related timings (Table 41). N/A until DRFM is implemented.
+- [ ] **tRREFD** — Refresh-to-refresh delay between consecutive REF commands (§6.3.2). Not tracked.
+- [ ] **tXSMRS / tXSMRSF** — Self-refresh exit to MRS timing (§Self-Refresh). Not enforced.
+
+### 🟡 Medium Priority — Missing Mode Register Behaviors
+- [ ] **MR7 OP[0]** — Loopback / DWORD MISR test mode (Table 17/18). Not modeled.
+- [ ] **MR8 OP[7:6]** — Bounded Refresh Configuration (BRC) (Table 41). Not modeled.
+- [ ] **MR8 OP[5:4]** — RFM level / adaptive RFM configuration (Table 40). Not modeled.
+- [ ] **MR9 OP[0]** — Metadata / ECC signaling enable (§8.x). Not modeled.
+- [ ] **MR10** — DCA (Duty Cycle Adjuster) control (Table 74). Not modeled.
+- [ ] **MR6 OP[7:6]** — DCM (Duty Cycle Monitor) control. Not modeled.
+
+### 🟡 Medium Priority — Missing Protocol / Data Path
+- [ ] **PC1 timing checks** — PC1 write handler (line ~920) has no tRCD/tRFC/tMOD/tCCD/tWTR/tRTW checks; PC1 read handler (line ~989) similarly missing. Asymmetric with PC0. **Bug.**
+- [ ] **Clock frequency change sequence** (§6.1). Not implemented.
+- [ ] **On-die ECC engine** — Only backdoor DERR injection exists. No encode/decode/correct, no ECC test mode, no ECC vector input mode (§8.x, lines 3157–3240).
+- [ ] **Interconnect redundancy remapping** — Address remapping tables (§10–§13, Tables 48–54). Not modeled.
+
+### 🟢 Low Priority — Cosmetic / Edge Cases
+- [ ] **CNOP / RNOP** — Spec defines explicit no-op command encodings; model treats 4'b0000 as generic NOP.
+- [ ] **Rx Offset Calibration training** — Analog-level; less relevant for behavioral model.
+- [ ] **Lane repair via IEEE 1500** — Only basic WIR/WBR/WBY implemented; no repair/remap flows.
+- [ ] **`test_concurrent_traffic`** — Exists in code but not listed in Makefile test targets.
