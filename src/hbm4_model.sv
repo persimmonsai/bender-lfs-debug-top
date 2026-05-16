@@ -868,6 +868,9 @@ module hbm4_model (
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE PC0 to idle bank %0d!", $time, bank_idx);
         end
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE PC0 issued while in low-power state (%s)!", $time, power_state.name());
+        end
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
@@ -999,6 +1002,9 @@ module hbm4_model (
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC0 to idle bank %0d!", $time, bank_idx);
+        end
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC0 issued while in low-power state (%s)!", $time, power_state.name());
         end
         
         // Refresh Cycle Check
@@ -1208,6 +1214,9 @@ module hbm4_model (
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE PC1 to idle bank %0d!", $time, bank_idx);
         end
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: WRITE PC1 issued while in low-power state (%s)!", $time, power_state.name());
+        end
         
         // Refresh Cycle Check
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
@@ -1332,6 +1341,9 @@ module hbm4_model (
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC1 to idle bank %0d!", $time, bank_idx);
+        end
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC1 issued while in low-power state (%s)!", $time, power_state.name());
         end
         
         // Refresh Cycle Check
