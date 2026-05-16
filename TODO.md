@@ -54,6 +54,51 @@ This document tracks the known gaps between the current HBM4 simulation model an
 
 ---
 
+## 9. Timing Test Coverage Gaps
+
+Audit of all timing parameters vs model enforcement vs testbench coverage.
+
+### Broken / Ineffective Tests
+- [ ] **`test_timing_wtr`** — Violating read is commented out; test exercises nothing
+- [ ] **`test_timing_rtp`** — Waits `tRTP` (4ns) but model enforces `tRTP_L` (5ns); also not self-contained (no own ACT, depends on prior test state)
+- [ ] **`test_rfm` / `test_drfm` / `test_prea_refpb`** — Issue single commands, never hit command-to-command spacing checks (`tRFM`, `tRFMpb`, `tDRFM`, `tRFCpb`, `tRREFD`)
+
+### Model Checks With No Test Coverage (16)
+| Parameter | Value | What It Guards |
+|-----------|-------|----------------|
+| tWTR_S | 6ns | Write-to-read turnaround (diff bank group) |
+| tRTW | 18ns | Read-to-write turnaround |
+| tWR | 20ns | Write recovery before precharge |
+| tMOD | 10ns | Mode register set to next command |
+| tXP | 8ns | Power-down exit to first command |
+| tXSMRS | 210ns | Self-refresh exit to MRS |
+| tCPDED | 4ns | Last command to power-down entry |
+| tWRPDE | 28ns | Write to power-down entry |
+| tRFC | 260ns | Refresh cycle (violation path untested) |
+| tRFCpb | 130ns | Per-bank refresh cycle |
+| tRREFD | 8ns | REFpb-to-REFpb spacing |
+| tRFM | 260ns | RFMab-to-RFMab spacing |
+| tRFMpb | 130ns | RFMpb-to-RFMpb spacing |
+| tDRFM | 260ns | DRFM-to-DRFM same bank spacing |
+| tZQCS | 128ns | ZQ cal short-to-short spacing |
+| tREFI / tREFW | 3.9µs / 32µs | Refresh interval / window (protocol warnings) |
+
+### Positive-Only Tests (no violation path exercised)
+- tRP, tRAS, tRC, tRRD_S, tCCD_S, tRFC, tPD, tXS, tRCDRD, tRCDWR
+
+### Unmodeled Timing Parameters (7)
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| tCL | 10ns | CAS latency — BFM uses as wait, model does not enforce |
+| tWL | 8ns | Write latency — BFM uses as wait, model does not enforce |
+| tRCD | 17ns | Legacy alias of max(tRCDRD, tRCDWR) — split params are modeled |
+| tRTP_S | 4ns | Read-to-precharge diff bank group — model only enforces tRTP_L |
+| tRTP | 4ns | Legacy alias — model enforces tRTP_L regardless |
+| tMRD | 10ns | Mode register command-to-command delay |
+| tCKSRE | 10ns | Clock stop after self-refresh entry |
+
+---
+
 ## Spec Audit Findings (JESD270-4)
 
 ### 🔴 High Priority — Missing Commands
