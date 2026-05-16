@@ -473,7 +473,8 @@ module hbm4_model (
     end
   end
 
-  // DWORD commands
+
+    // DWORD commands
   always @(posedge vif.CK_t) begin
     if (vif.RESET_n) begin
       dword_t dword_pc0;
@@ -816,6 +817,59 @@ module hbm4_model (
   
   assign vif.DQ_PC1 = read_valid_pc1 ? read_data_pc1 : 32'hz;
   assign vif.DBI_PC1 = read_valid_pc1 ? read_dbi_pc1 : 4'hz;
+
+  // =====================================================================
+  // IEEE 1500 Wrapper Serial Port (WSP) Implementation
+  // =====================================================================
+  
+  logic [7:0] wir; // Wrapper Instruction Register
+  logic [31:0] wbr; // Wrapper Boundary Register
+  logic wby; // Wrapper Bypass Register
+  
+  logic [7:0] wir_shift;
+  logic [31:0] wbr_shift;
+  logic wby_shift;
+  
+  assign vif.WSO = (vif.SelectVR) ? wir_shift[0] : ((wir == 8'hFF) ? wby_shift : wbr_shift[0]);
+
+  always @(posedge vif.WRCK) begin
+    if (!vif.RESET_n) begin
+      wir <= 8'h00;
+      wbr <= 32'h00000000;
+      wby <= 1'b0;
+      wir_shift <= 8'h00;
+      wbr_shift <= 32'h00000000;
+      wby_shift <= 1'b0;
+    end else begin
+      if (vif.SelectVR) begin
+        // Instruction Register Access
+        if (vif.CaptureWR) begin
+          wir_shift <= wir;
+        end else if (vif.ShiftWR) begin
+          wir_shift <= {vif.WSI, wir_shift[7:1]};
+        end else if (vif.UpdateWR) begin
+          wir <= wir_shift;
+        end
+      end else begin
+        // Data Register Access (Based on WIR)
+        if (wir == 8'hFF) begin // Bypass
+          if (vif.CaptureWR) begin
+            wby_shift <= 1'b0;
+          end else if (vif.ShiftWR) begin
+            wby_shift <= vif.WSI;
+          end
+        end else begin // Default to Boundary Register
+          if (vif.CaptureWR) begin
+            wbr_shift <= wbr;
+          end else if (vif.ShiftWR) begin
+            wbr_shift <= {vif.WSI, wbr_shift[31:1]};
+          end else if (vif.UpdateWR) begin
+            wbr <= wbr_shift;
+          end
+        end
+      end
+    end
+  end
 
 endmodule : hbm4_model
 `endif

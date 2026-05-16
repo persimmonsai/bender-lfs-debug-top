@@ -41,6 +41,15 @@ interface hbm4_if (
   wire [3:0] DBI_PC0;
   wire [3:0] DBI_PC1;
 
+  // IEEE 1500 Test Port Pins
+  logic WRCK;
+  logic WSI;
+  logic WSO;
+  logic ShiftWR;
+  logic UpdateWR;
+  logic CaptureWR;
+  logic SelectVR;
+
   // Modport for the Memory Model
   modport mem (
     input  CK_t, CK_c, WCK_t, WCK_c, RESET_n, CKE,
@@ -49,7 +58,9 @@ interface hbm4_if (
     input  WDQS_t_pc0, WDQS_c_pc0, WDQS_t_pc1, WDQS_c_pc1,
     output RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
-    output AERR
+    output AERR,
+    input  WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
+    output WSO
   );
 
   // Modport for the Controller / BFM
@@ -61,7 +72,9 @@ interface hbm4_if (
     output WDQS_t_pc0, WDQS_c_pc0, WDQS_t_pc1, WDQS_c_pc1,
     input  RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
-    input  AERR
+    input  AERR,
+    output WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
+    input  WSO
   );
 
 endinterface : hbm4_if

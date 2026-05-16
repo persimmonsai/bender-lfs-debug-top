@@ -69,6 +69,58 @@ function automatic logic calc_parity_dword(dword_t d);
     return ^({d.C_ADDR, d.BA, d.BG, d.CMD});
   end
 endfunction
+
+  // =====================================================================
+  // IEEE 1500 Test Port Tasks
+  // =====================================================================
+  
+  task write_ieee1500_instruction(input logic [7:0] instr);
+    begin
+      vif.SelectVR = 1;
+      vif.CaptureWR = 0;
+      vif.ShiftWR = 1;
+      vif.UpdateWR = 0;
+      
+      for (int i = 0; i < 8; i++) begin
+        vif.WSI = instr[i];
+        #5ns vif.WRCK = 1;
+        #5ns vif.WRCK = 0;
+      end
+      
+      vif.ShiftWR = 0;
+      vif.UpdateWR = 1;
+      #5ns vif.WRCK = 1;
+      #5ns vif.WRCK = 0;
+      vif.UpdateWR = 0;
+    end
+  endtask
+  
+  task write_ieee1500_data(input logic [31:0] data, output logic [31:0] read_data);
+    begin
+      vif.SelectVR = 0;
+      vif.CaptureWR = 1;
+      vif.ShiftWR = 0;
+      vif.UpdateWR = 0;
+      #5ns vif.WRCK = 1;
+      #5ns vif.WRCK = 0;
+      vif.CaptureWR = 0;
+      
+      vif.ShiftWR = 1;
+      for (int i = 0; i < 32; i++) begin
+        vif.WSI = data[i];
+        read_data[i] = vif.WSO;
+        #5ns vif.WRCK = 1;
+        #5ns vif.WRCK = 0;
+      end
+      
+      vif.ShiftWR = 0;
+      vif.UpdateWR = 1;
+      #5ns vif.WRCK = 1;
+      #5ns vif.WRCK = 0;
+      vif.UpdateWR = 0;
+    end
+  endtask
+
   // Task for Power-up and Initialization
   task init();
     begin

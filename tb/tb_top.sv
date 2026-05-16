@@ -506,6 +506,33 @@ module tb_top;
   endtask
 
 
+
+  task test_ieee1500();
+    begin
+      logic [31:0] read_data;
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: IEEE 1500 Test Port", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      // Write Instruction (e.g. 0x01 for Boundary Register)
+      u_hbm4_bfm[0].write_ieee1500_instruction(8'h01);
+      
+      // Write and Read Data
+      u_hbm4_bfm[0].write_ieee1500_data(32'hDEADBEEF, read_data);
+      $display("[%0t] TB_TOP: IEEE 1500 Wrote DEADBEEF, Initial Read: %08h", $time, read_data);
+      
+      // Read Data again to see the previously written data
+      u_hbm4_bfm[0].write_ieee1500_data(32'hCAFEBABE, read_data);
+      $display("[%0t] TB_TOP: IEEE 1500 Read back: %08h", $time, read_data);
+      
+      if (read_data == 32'hDEADBEEF) begin
+         $display("[%0t] TB_TOP: PASS - IEEE 1500 WBR successfully shifted through.", $time);
+      end else begin
+         $error("[%0t] TB_TOP: FAIL - IEEE 1500 WBR data mismatch.", $time);
+      end
+    end
+  endtask
+
   task test_low_power_states();
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
@@ -615,16 +642,20 @@ module tb_top;
       else if (test_name == "test_refresh_mechanics") test_refresh_mechanics();
       else if (test_name == "test_prea_refpb") test_prea_refpb();
       else if (test_name == "test_low_power_states") test_low_power_states();
+      else if (test_name == "test_ieee1500") test_ieee1500();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
     end else begin
       $display("[%0t] TB_TOP: Running full regression suite", $time);
+      test_ieee1500();
       test_mrs_config();
       test_mrr();
       test_basic_rw_bursts();
       test_parity_error();
+      test_low_power_states();
       test_prea_refpb();
+      test_timing_faw_rrd();
       test_timing_ccd();
       test_timing_rtp();
       test_timing_wtr();
