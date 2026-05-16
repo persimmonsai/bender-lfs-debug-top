@@ -40,6 +40,7 @@ module hbm4_model (
 
   // Refresh and MRS Trackers
   time last_ref_time = 0;
+  time last_refpb_time [NUM_BANKS];
   time last_mrs_time = 0;
 
   // DBI Trackers
@@ -160,6 +161,7 @@ module hbm4_model (
         last_pre_time[i] <= 0;
         last_bank_wr_time[i] <= 0;
         last_bank_rd_time[i] <= 0;
+        last_refpb_time[i] <= 0;
       end
     end else begin
       // Decode AWORD command
@@ -305,6 +307,56 @@ module hbm4_model (
         bank_state[bank_idx] <= BANK_IDLE;
         last_pre_time[bank_idx] <= $time;
         $display("[%0t] HBM4_MODEL: PRECHARGE Bank %0d", $time, bank_idx);
+      end
+      else if (aword.CMD == CMD_PREA) begin
+        // Check tRFC
+        if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on PREA.", $time);
+        end
+        // tMOD Check
+        if (($time - last_mrs_time) < tMOD && last_mrs_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on PREA.", $time);
+        end
+        
+        for (int i = 0; i < NUM_BANKS; i++) begin
+          if (bank_state[i] == BANK_ACTIVE) begin
+            // Timing Check: tRAS
+            if (($time - last_act_time[i]) < tRAS && last_act_time[i] != 0) begin
+              $error("[%0t] HBM4_TIMING_ERROR: tRAS violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRAS, ($time - last_act_time[i]));
+            end
+            // Timing Check: tWR
+            if (($time - last_bank_wr_time[i]) < tWR && last_bank_wr_time[i] != 0) begin
+              $error("[%0t] HBM4_TIMING_ERROR: tWR violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tWR, ($time - last_bank_wr_time[i]));
+            end
+            // Timing Check: tRTP
+            if (($time - last_bank_rd_time[i]) < tRTP && last_bank_rd_time[i] != 0) begin
+              $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRTP, ($time - last_bank_rd_time[i]));
+            end
+            
+            bank_state[i] <= BANK_IDLE;
+            last_pre_time[i] <= $time;
+          end
+        end
+        $display("[%0t] HBM4_MODEL: PRECHARGE ALL", $time);
+      end
+      else if (aword.CMD == CMD_REFpb) begin
+        int bank_idx;
+        bank_idx = {aword.BG, aword.BA};
+
+        if (bank_state[bank_idx] != BANK_IDLE) begin
+           $error("[%0t] HBM4_PROTOCOL_ERROR: REFpb command issued to ACTIVE bank %0d!", $time, bank_idx);
+        end
+        // Check tRFCpb
+        if (($time - last_refpb_time[bank_idx]) < tRFCpb && last_refpb_time[bank_idx] != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRFCpb violation on REFpb bank %0d.", $time, bank_idx);
+        end
+        // Also respect all-bank refresh
+        if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on REFpb.", $time);
+        end
+
+        last_refpb_time[bank_idx] <= $time;
+        $display("[%0t] HBM4_MODEL: PER-BANK REFRESH Bank %0d", $time, bank_idx);
       end
       else if (aword.CMD == CMD_REF) begin
         // Check if all banks are idle

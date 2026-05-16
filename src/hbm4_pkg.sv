@@ -27,7 +27,10 @@ package hbm4_pkg;
     CMD_MRS = 4'b0101,
     CMD_REF = 4'b0110,
     CMD_SRE = 4'b0111,
-    CMD_PDE = 4'b1000
+    CMD_PDE = 4'b1000,
+    CMD_PREA  = 4'b1001,
+    CMD_REFpb = 4'b1010,
+    CMD_MRR   = 4'b1011
   } hbm4_cmd_e;
 
   // AWORD (Row Command Bus) Structure
@@ -68,6 +71,7 @@ package hbm4_pkg;
 
   // Refresh & MRS Parameters
   localparam time tRFC   = 260ns;
+  localparam time tRFCpb = 130ns; // Per-Bank Refresh Cycle Time
   localparam time tREFI  = 3900ns; // 3.9us
   localparam time tMOD   = 10ns;   // MRS update delay
   localparam time tMRD   = 10ns;   // MRS to MRS delay

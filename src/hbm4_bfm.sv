@@ -151,6 +151,42 @@ module hbm4_bfm (
     end
   endtask
 
+  // Task to issue PRECHARGE ALL command
+  task precharge_all();
+    begin
+      aword_t aword;
+      aword.CMD = CMD_PREA;
+      aword.BG = '0;
+      aword.BA = '0;
+      aword.R_ADDR = '0;
+      aword.R = 0;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= aword;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= '0; // NOP
+    end
+  endtask
+
+  // Task to issue REFpb command
+  task refresh_pb(input logic [1:0] bg, input logic [3:0] ba);
+    begin
+      aword_t aword;
+      aword.CMD = CMD_REFpb;
+      aword.BG = bg;
+      aword.BA = ba;
+      aword.R_ADDR = '0;
+      aword.R = 0;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= aword;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= '0; // NOP
+    end
+  endtask
+
   // Task to write data to PC0
   task automatic write_pc0(input logic [1:0] bg, input logic [3:0] ba, input logic [5:0] col, input logic [255:0] data);
     begin
@@ -517,6 +553,170 @@ module hbm4_bfm (
       
       @(posedge vif.CK_t);
       vif.DWORD_PC1 <= dword;
+      
+      @(posedge vif.CK_t);
+      vif.DWORD_PC1 <= '0; // NOP
+    end
+  endtask
+
+  // Task to issue MRR command to PC0
+  task automatic mrr_pc0(input logic [4:0] mr_idx);
+    begin
+      dword_t dword;
+      dword.CMD = CMD_MRR;
+      dword.BA = mr_idx[3:0];
+      dword.BG = 0;
+      dword.C_ADDR = 0;
+      dword.C = mr_idx[4];
+      
+      @(posedge vif.CK_t);
+      vif.DWORD_PC0 <= dword;
+      last_write_state_pc0 = '0;
+      
+      fork
+        begin
+          logic [255:0] read_data;
+          @(posedge vif.CK_t); // Wait for command to be on the bus
+          
+          fork
+            begin
+              repeat(rl_pc0 - 2) @(posedge vif.CK_t);
+              // Four-pulse Preamble (4 WCK cycles = 2 tCK)
+              for (int beat = 0; beat < 4; beat++) begin
+                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                @(posedge vif.WCK_t);
+              end
+              
+              // Toggle for 4 WCK cycles duration (2 tCK)
+              for (int beat = 0; beat < 4; beat++) begin
+                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                @(posedge vif.WCK_t);
+              end
+              
+              // Two-pulse Postamble (2 WCK cycles = 1 tCK)
+              for (int p = 0; p < 2; p++) begin
+                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                @(posedge vif.WCK_t);
+              end
+            end
+          join_none
+
+          // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
+          repeat(2) begin
+            @(posedge vif.RDQS_t_pc0);
+            @(negedge vif.RDQS_t_pc0);
+          end
+          
+          // We no longer wait for RL using CK, we just wait for RDQS edges!
+          for (int beat = 0; beat < 4; beat++) begin
+            automatic logic [31:0] dq_sampled;
+            automatic logic [3:0]  dbi_sampled;
+            
+            @(posedge vif.RDQS_t_pc0);
+            dq_sampled = vif.DQ_PC0;
+            dbi_sampled = vif.DBI_PC0;
+            for (int b = 0; b < 4; b++) begin
+              read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+            end
+            
+            @(negedge vif.RDQS_t_pc0);
+            dq_sampled = vif.DQ_PC0;
+            dbi_sampled = vif.DBI_PC0;
+            for (int b = 0; b < 4; b++) begin
+              read_data[(beat*2+1)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+            end
+          end
+          $display("[%0t] HBM4_BFM: PC0 MRR MR%0d Read Data = %0h", $time, mr_idx, read_data[7:0]);
+        end
+      join_none
+      
+      @(posedge vif.CK_t);
+      vif.DWORD_PC0 <= '0; // NOP
+    end
+  endtask
+
+  // Task to issue MRR command to PC1
+  task automatic mrr_pc1(input logic [4:0] mr_idx);
+    begin
+      dword_t dword;
+      dword.CMD = CMD_MRR;
+      dword.BA = mr_idx[3:0];
+      dword.BG = 0;
+      dword.C_ADDR = 0;
+      dword.C = mr_idx[4];
+      
+      @(posedge vif.CK_t);
+      vif.DWORD_PC1 <= dword;
+      last_write_state_pc1 = '0;
+      
+      fork
+        begin
+          logic [255:0] read_data;
+          @(posedge vif.CK_t); // Wait for command to be on the bus
+          
+          fork
+            begin
+              repeat(rl_pc1 - 2) @(posedge vif.CK_t);
+              // Four-pulse Preamble (4 WCK cycles = 2 tCK)
+              for (int beat = 0; beat < 4; beat++) begin
+                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                @(posedge vif.WCK_t);
+              end
+              
+              // Toggle for 4 WCK cycles duration (2 tCK)
+              for (int beat = 0; beat < 4; beat++) begin
+                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                @(posedge vif.WCK_t);
+              end
+              
+              // Two-pulse Postamble (2 WCK cycles = 1 tCK)
+              for (int p = 0; p < 2; p++) begin
+                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                @(negedge vif.WCK_t);
+                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                @(posedge vif.WCK_t);
+              end
+            end
+          join_none
+
+          // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
+          repeat(2) begin
+            @(posedge vif.RDQS_t_pc1);
+            @(negedge vif.RDQS_t_pc1);
+          end
+          
+          // We no longer wait for RL using CK, we just wait for RDQS edges!
+          for (int beat = 0; beat < 4; beat++) begin
+            automatic logic [31:0] dq_sampled;
+            automatic logic [3:0]  dbi_sampled;
+            
+            @(posedge vif.RDQS_t_pc1);
+            dq_sampled = vif.DQ_PC1;
+            dbi_sampled = vif.DBI_PC1;
+            for (int b = 0; b < 4; b++) begin
+              read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+            end
+            
+            @(negedge vif.RDQS_t_pc1);
+            dq_sampled = vif.DQ_PC1;
+            dbi_sampled = vif.DBI_PC1;
+            for (int b = 0; b < 4; b++) begin
+              read_data[(beat*2+1)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+            end
+          end
+          $display("[%0t] HBM4_BFM: PC1 MRR MR%0d Read Data = %0h", $time, mr_idx, read_data[7:0]);
+        end
+      join_none
       
       @(posedge vif.CK_t);
       vif.DWORD_PC1 <= '0; // NOP

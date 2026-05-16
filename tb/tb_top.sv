@@ -190,8 +190,7 @@ module tb_top;
       
       // Use Bank 0 BA 0 (Already precharged but let's re-activate if needed, wait, it was precharged in previous test?
       // Let's just precharge all to be safe before starting)
-      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
-      u_hbm4_bfm[0].precharge(2'b00, 4'b0001);
+      u_hbm4_bfm[0].precharge_all();
       #(tRP);
       
       u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); // BG0, BA0
@@ -218,11 +217,7 @@ module tb_top;
       $display("[%0t] TB_TOP: ========================================\n", $time);
       
       // Close all banks first
-      for (int bg=0; bg<4; bg++) begin
-        for (int ba=0; ba<16; ba++) begin
-          u_hbm4_bfm[0].precharge(bg[1:0], ba[3:0]);
-        end
-      end
+      u_hbm4_bfm[0].precharge_all();
       
       #(tRP);
       
@@ -253,6 +248,9 @@ module tb_top;
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: Random Pseudo-Traffic Generation (%0d transactions)", $time, num_transactions);
       $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
       
       for (int i=0; i<num_transactions; i++) begin
         channel = $urandom_range(0, 31);
@@ -307,6 +305,9 @@ module tb_top;
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: Concurrent Pseudo-Traffic Generation (%0d transactions)", $time, num_transactions);
       $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
       
       $display("[%0t] TB_TOP: Pre-activating independent banks...", $time);
       u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); #(tRCD);
@@ -392,6 +393,53 @@ module tb_top;
     end
   endtask
 
+  task test_prea_refpb();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      $display("[%0t] TB_TOP: TEST: Precharge All (PREA) and Per-Bank Refresh (REFpb)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      $display("[%0t] TB_TOP: Activating Bank 0 and Bank 1", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
+      #(tRCD + tRAS); // Wait until banks are active and meet tRAS
+      
+      $display("[%0t] TB_TOP: Issuing Precharge All (PREA)", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Issuing Per-Bank Refresh to Bank 0", $time);
+      u_hbm4_bfm[0].refresh_pb(2'b00, 4'b0000);
+      #(tRFCpb);
+      
+      $display("[%0t] TB_TOP: Activating Bank 0 again", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS + 1ns);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+    end
+  endtask
+
+  task test_mrr();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Mode Register Read (MRR)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      $display("[%0t] TB_TOP: Issuing MRR for MR0 (should be 8'h04)", $time);
+      u_hbm4_bfm[0].mrr_pc0(5'h00);
+      u_hbm4_bfm[0].mrr_pc1(5'h00);
+      #(tCL + 20ns);
+      
+      $display("[%0t] TB_TOP: Issuing MRR for MR1 (should be 8'h06)", $time);
+      u_hbm4_bfm[0].mrr_pc0(5'h01);
+      u_hbm4_bfm[0].mrr_pc1(5'h01);
+      #(tCL + 20ns);
+    end
+  endtask
+
   // ------------------------------------------------------------------------
   // Master Test Sequence
   // ------------------------------------------------------------------------
@@ -413,6 +461,7 @@ module tb_top;
     if ($value$plusargs("TEST=%s", test_name)) begin
       $display("[%0t] TB_TOP: Running explicit test: %s", $time, test_name);
       if (test_name == "test_mrs_config") test_mrs_config();
+      else if (test_name == "test_mrr") test_mrr();
       else if (test_name == "test_basic_rw_bursts") test_basic_rw_bursts();
       else if (test_name == "test_timing_ccd") test_timing_ccd();
       else if (test_name == "test_timing_rtp") test_timing_rtp();
@@ -420,13 +469,16 @@ module tb_top;
       else if (test_name == "test_random_traffic") test_random_traffic();
       else if (test_name == "test_concurrent_traffic") test_concurrent_traffic();
       else if (test_name == "test_refresh_mechanics") test_refresh_mechanics();
+      else if (test_name == "test_prea_refpb") test_prea_refpb();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
     end else begin
       $display("[%0t] TB_TOP: Running full regression suite", $time);
       test_mrs_config();
+      test_mrr();
       test_basic_rw_bursts();
+      test_prea_refpb();
       test_timing_ccd();
       test_timing_rtp();
       test_timing_wtr();
