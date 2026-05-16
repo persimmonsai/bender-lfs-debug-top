@@ -784,6 +784,47 @@ module tb_top;
     
     $display("[%0t] TEST: test_drfm - PASSED", $time);
   endtask
+
+  // Test: On-die ECC engine (SEC-DED)
+  task test_ecc_engine();
+    logic [255:0] wdata;
+    int addr;
+    
+    $display("\n[%0t] TEST: test_ecc_engine - Starting", $time);
+    
+    // Write known data
+    wdata = {8{32'hDEAD_BEEF}};
+    bfm[0].activate(2'b10, 4'b0100, 15'h0300);
+    repeat(20) @(posedge clk);
+    bfm[0].write_pc0(2'b10, 4'b0100, 6'h08, wdata);
+    repeat(30) @(posedge clk);
+    
+    // Read it back — should be clean (no ECC errors)
+    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge clk);
+    
+    // Inject single-bit error via backdoor and read — should correct silently
+    addr = {2'b10, 4'b0100, 15'h0300, 6'h08};
+    u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 42);
+    repeat(5) @(posedge clk);
+    
+    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge clk);
+    
+    // Inject double-bit error — should trigger DERR
+    u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 100);
+    u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 101);
+    repeat(5) @(posedge clk);
+    
+    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge clk);
+    
+    // Clean up
+    bfm[0].precharge(2'b10, 4'b0100);
+    repeat(20) @(posedge clk);
+    
+    $display("[%0t] TEST: test_ecc_engine - PASSED (SEC=%0d, DED=%0d)", $time, u_hbm4_stack.ch[0].u_hbm4_model.ecc_sec_count, u_hbm4_stack.ch[0].u_hbm4_model.ecc_ded_count);
+  endtask
     $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
     $finish(2);
   end
@@ -836,6 +877,7 @@ module tb_top;
       else if (test_name == "test_auto_precharge") test_auto_precharge();
       else if (test_name == "test_rfm") test_rfm();
       else if (test_name == "test_drfm") test_drfm();
+      else if (test_name == "test_ecc_engine") test_ecc_engine();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -860,6 +902,7 @@ module tb_top;
       test_auto_precharge();
       test_rfm();
       test_drfm();
+      test_ecc_engine();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

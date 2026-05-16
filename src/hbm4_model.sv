@@ -25,6 +25,14 @@ module hbm4_model (
   logic [255:0] mem_array_pc0 [int];
   logic [255:0] mem_array_pc1 [int];
 
+  // ECC Check Bit Storage (parallel to memory arrays)
+  logic [ECC_CHECK_BITS-1:0] ecc_array_pc0 [int];
+  logic [ECC_CHECK_BITS-1:0] ecc_array_pc1 [int];
+
+  // ECC statistics counters
+  int ecc_sec_count = 0; // Single-bit errors corrected
+  int ecc_ded_count = 0; // Double-bit errors detected
+
   // Timing Trackers
   time last_act_time [NUM_BANKS];
   time last_pre_time [NUM_BANKS];
@@ -120,6 +128,22 @@ module hbm4_model (
   
   // Backdoor to inject an ECC error on the next read
   logic inject_ecc_error = 0;
+
+  // Backdoor: inject a single-bit or multi-bit error into memory for ECC testing
+  // Usage: model.inject_bit_error_pc0(addr, bit_pos) to flip a bit in stored data
+  task automatic inject_bit_error_pc0(input int addr, input int bit_pos);
+    if (mem_array_pc0.exists(addr)) begin
+      mem_array_pc0[addr][bit_pos] = ~mem_array_pc0[addr][bit_pos];
+      $display("[%0t] HBM4_ECC_TEST: Injected bit error at PC0 addr=0x%0h bit=%0d", $time, addr, bit_pos);
+    end
+  endtask
+
+  task automatic inject_bit_error_pc1(input int addr, input int bit_pos);
+    if (mem_array_pc1.exists(addr)) begin
+      mem_array_pc1[addr][bit_pos] = ~mem_array_pc1[addr][bit_pos];
+      $display("[%0t] HBM4_ECC_TEST: Injected bit error at PC1 addr=0x%0h bit=%0d", $time, addr, bit_pos);
+    end
+  endtask
 
   // Error Logging in Mode Registers
   // MR18: Error Status — [7:4] error type (1=parity, 2=ECC), [3:0] syndrome
@@ -840,6 +864,7 @@ module hbm4_model (
                 end
               end
               mem_array_pc0[addr] = write_data;
+              ecc_array_pc0[addr] = ecc_encode(write_data); // Store ECC check bits
               // Loopback mode: capture write data for immediate readback
               if (mode_reg_pc0[7][0]) loopback_data_pc0 = write_data;
               
@@ -941,8 +966,27 @@ module hbm4_model (
               // Loopback mode: return last written data instead of memory contents
               if (mode_reg_pc0[7][0])
                 read_data_256 = loopback_data_pc0;
-              else
+              else begin
                 read_data_256 = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
+                // On-die ECC decode: check and correct on read
+                if (ecc_array_pc0.exists(addr)) begin
+                  ecc_result_t ecc_res;
+                  ecc_res = ecc_decode(read_data_256, ecc_array_pc0[addr]);
+                  if (ecc_res.sec_error) begin
+                    read_data_256 = ecc_res.data;
+                    mem_array_pc0[addr] = ecc_res.data; // Scrub corrected data
+                    ecc_sec_count++;
+                    $display("[%0t] HBM4_ECC: SEC corrected on PC0 read addr=0x%0h", $time, addr);
+                  end
+                  if (ecc_res.ded_error) begin
+                    ecc_ded_count++;
+                    derr_out <= 1;
+                    derr_timer <= 4;
+                    log_ecc_error(dword_pc0.BG, dword_pc0.BA, active_row[b_idx], 4'hB);
+                    $display("[%0t] HBM4_ECC: DED uncorrectable on PC0 read addr=0x%0h. DERR asserted.", $time, addr);
+                  end
+                end
+              end
               
               for (int beat = 0; beat < 4; beat++) begin
                 ui0_data = read_data_256[(beat*2)*32 +: 32];
@@ -1137,6 +1181,7 @@ module hbm4_model (
                 end
               end
               mem_array_pc1[addr] = write_data;
+              ecc_array_pc1[addr] = ecc_encode(write_data);
               if (mode_reg_pc1[7][0]) loopback_data_pc1 = write_data;
               
               // Auto-Precharge: close bank after write recovery (tWR)
@@ -1234,8 +1279,26 @@ module hbm4_model (
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               if (mode_reg_pc1[7][0])
                 read_data_256 = loopback_data_pc1;
-              else
+              else begin
                 read_data_256 = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
+                if (ecc_array_pc1.exists(addr)) begin
+                  ecc_result_t ecc_res;
+                  ecc_res = ecc_decode(read_data_256, ecc_array_pc1[addr]);
+                  if (ecc_res.sec_error) begin
+                    read_data_256 = ecc_res.data;
+                    mem_array_pc1[addr] = ecc_res.data;
+                    ecc_sec_count++;
+                    $display("[%0t] HBM4_ECC: SEC corrected on PC1 read addr=0x%0h", $time, addr);
+                  end
+                  if (ecc_res.ded_error) begin
+                    ecc_ded_count++;
+                    derr_out <= 1;
+                    derr_timer <= 4;
+                    log_ecc_error(dword_pc1.BG, dword_pc1.BA, active_row[b_idx], 4'hB);
+                    $display("[%0t] HBM4_ECC: DED uncorrectable on PC1 read addr=0x%0h. DERR asserted.", $time, addr);
+                  end
+                end
+              end
               
               for (int beat = 0; beat < 4; beat++) begin
                 ui0_data = read_data_256[(beat*2)*32 +: 32];

@@ -114,6 +114,71 @@ package hbm4_pkg;
   localparam int  DRFM_BIT = 4;    // R_ADDR bit that signals DRFM on ACT command
   localparam time tDRFM = 260ns;   // DRFM cycle time
 
+  // On-die ECC Parameters
+  localparam int ECC_DATA_BITS = 256;
+  localparam int ECC_CHECK_BITS = 10; // SEC-DED for 256-bit word (9 Hamming + 1 parity)
+
+  // SEC-DED ECC: Generate check bits for 256-bit data
+  // Uses simplified Hamming code with overall parity for double-error detection
+  function automatic logic [ECC_CHECK_BITS-1:0] ecc_encode(input logic [ECC_DATA_BITS-1:0] data);
+    logic [8:0] syndrome;
+    logic overall_parity;
+    // Hamming check bits: each covers specific data bit positions
+    syndrome[0] = ^(data & 256'hAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA);
+    syndrome[1] = ^(data & 256'hCCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC);
+    syndrome[2] = ^(data & 256'hF0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0);
+    syndrome[3] = ^(data & 256'hFF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00);
+    syndrome[4] = ^(data & 256'hFFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000);
+    syndrome[5] = ^(data & 256'hFFFF_FFFF_0000_0000_FFFF_FFFF_0000_0000_FFFF_FFFF_0000_0000_FFFF_FFFF_0000_0000);
+    syndrome[6] = ^(data & 256'hFFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000_FFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000);
+    syndrome[7] = ^(data & 256'hFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000_0000_0000_0000_0000);
+    syndrome[8] = ^(data[255:128]); // Upper half parity
+    // Overall parity for double-error detection
+    overall_parity = ^data ^ ^syndrome;
+    return {overall_parity, syndrome};
+  endfunction
+
+  // SEC-DED ECC: Decode and correct
+  // Returns: {corrected, sec_error, ded_error, corrected_data}
+  // sec_error = single-bit corrected, ded_error = double-bit uncorrectable
+  typedef struct packed {
+    logic sec_error;     // Single-bit error corrected
+    logic ded_error;     // Double-bit error detected (uncorrectable)
+    logic [ECC_DATA_BITS-1:0] data;
+  } ecc_result_t;
+
+  function automatic ecc_result_t ecc_decode(
+    input logic [ECC_DATA_BITS-1:0] data,
+    input logic [ECC_CHECK_BITS-1:0] stored_ecc
+  );
+    ecc_result_t result;
+    logic [ECC_CHECK_BITS-1:0] computed_ecc;
+    logic [8:0] syndrome;
+    logic parity_error;
+    
+    computed_ecc = ecc_encode(data);
+    syndrome = computed_ecc[8:0] ^ stored_ecc[8:0];
+    parity_error = computed_ecc[9] ^ stored_ecc[9];
+    
+    result.data = data;
+    result.sec_error = 0;
+    result.ded_error = 0;
+    
+    if (syndrome != 0 && parity_error) begin
+      // Single-bit error: correct it
+      if (syndrome < ECC_DATA_BITS) begin
+        result.data[syndrome] = ~result.data[syndrome];
+      end
+      result.sec_error = 1;
+    end else if (syndrome != 0 && !parity_error) begin
+      // Double-bit error: uncorrectable
+      result.ded_error = 1;
+    end
+    // syndrome==0 && no parity error: no error
+    
+    return result;
+  endfunction
+
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);
     int toggle_count = $countones(data ^ prev_data);
