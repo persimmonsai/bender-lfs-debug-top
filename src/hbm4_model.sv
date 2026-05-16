@@ -269,10 +269,10 @@ module hbm4_model (
     read_data_pc1 = 32'hz;
     read_dbi_pc0  = 4'hz;
     read_dbi_pc1  = 4'hz;
-    vif.RDQS_t_pc0 = 0;
-    vif.RDQS_c_pc0 = 1;
-    vif.RDQS_t_pc1 = 0;
-    vif.RDQS_c_pc1 = 1;
+    vif.RDQS_t_PC0 = 0;
+    vif.RDQS_c_PC0 = 1;
+    vif.RDQS_t_PC1 = 0;
+    vif.RDQS_c_PC1 = 1;
   end
 
   initial begin
@@ -762,10 +762,10 @@ module hbm4_model (
     read_data_pc1 = 32'hz;
     read_dbi_pc0  = 4'hz;
     read_dbi_pc1  = 4'hz;
-    vif.RDQS_t_pc0 = 0;
-    vif.RDQS_c_pc0 = 1;
-    vif.RDQS_t_pc1 = 0;
-    vif.RDQS_c_pc1 = 1;
+    vif.RDQS_t_PC0 = 0;
+    vif.RDQS_c_PC0 = 1;
+    vif.RDQS_t_PC1 = 0;
+    vif.RDQS_c_PC1 = 1;
   end
 
   initial begin
@@ -870,7 +870,7 @@ module hbm4_model (
                 automatic logic [31:0] dq_sampled;
                 automatic logic [3:0]  dbi_sampled;
                 
-                @(posedge vif.WDQS_t_pc0);
+                @(posedge vif.WDQS_t_PC0);
                 dq_sampled = vif.DQ_PC0;
                 dbi_sampled = vif.DBI_PC0;
                 for (int b = 0; b < 4; b++) begin
@@ -881,7 +881,7 @@ module hbm4_model (
                   end
                 end
                 
-                @(negedge vif.WDQS_t_pc0);
+                @(negedge vif.WDQS_t_PC0);
                 dq_sampled = vif.DQ_PC0;
                 dbi_sampled = vif.DBI_PC0;
                 for (int b = 0; b < 4; b++) begin
@@ -986,10 +986,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble (4 WCK pulses)
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
               // Loopback mode: return last written data instead of memory contents
@@ -1028,7 +1028,7 @@ module hbm4_model (
                   read_valid_pc0 = 1;
                   last_read_state_pc0 = next_st;
                   
-                  vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0;
+                  vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0;
                   
                   @(negedge vif.WCK_t);
                   
@@ -1037,14 +1037,14 @@ module hbm4_model (
                   read_dbi_pc0 = next_st[35:32];
                   last_read_state_pc0 = next_st;
                   
-                  vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1;
+                  vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               
               // Postamble (2 WCK pulses)
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               read_valid_pc0 = 0;
               
               // Auto-Precharge: close bank after tRTP
@@ -1080,10 +1080,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
               
@@ -1095,7 +1095,7 @@ module hbm4_model (
                   read_valid_pc0 = 1;
                   last_read_state_pc0 = next_st;
                   
-                  vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0;
+                  vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0;
                   @(negedge vif.WCK_t);
                   
                   next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc0, rdbi_en);
@@ -1103,14 +1103,14 @@ module hbm4_model (
                   read_dbi_pc0 = next_st[35:32];
                   last_read_state_pc0 = next_st;
                   
-                  vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1;
+                  vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               
               // Postamble
-              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 1; vif.RDQS_c_PC0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC0 <= 0; vif.RDQS_c_PC0 <= 1; @(posedge vif.WCK_t);
               read_valid_pc0 = 0;
             end
           join_none
@@ -1187,7 +1187,7 @@ module hbm4_model (
                 automatic logic [31:0] dq_sampled;
                 automatic logic [3:0]  dbi_sampled;
                 
-                @(posedge vif.WDQS_t_pc1);
+                @(posedge vif.WDQS_t_PC1);
                 dq_sampled = vif.DQ_PC1;
                 dbi_sampled = vif.DBI_PC1;
                 for (int b = 0; b < 4; b++) begin
@@ -1198,7 +1198,7 @@ module hbm4_model (
                   end
                 end
                 
-                @(negedge vif.WDQS_t_pc1);
+                @(negedge vif.WDQS_t_PC1);
                 dq_sampled = vif.DQ_PC1;
                 dbi_sampled = vif.DBI_PC1;
                 for (int b = 0; b < 4; b++) begin
@@ -1300,10 +1300,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble (4 WCK pulses)
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               if (mode_reg_pc1[7][0])
@@ -1340,7 +1340,7 @@ module hbm4_model (
                   read_valid_pc1 = 1;
                   last_read_state_pc1 = next_st;
                   
-                  vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0;
+                  vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0;
                   
                   @(negedge vif.WCK_t);
                   
@@ -1349,14 +1349,14 @@ module hbm4_model (
                   read_dbi_pc1 = next_st[35:32];
                   last_read_state_pc1 = next_st;
                   
-                  vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1;
+                  vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               
               // Postamble (2 WCK pulses)
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               read_valid_pc1 = 0;
               
               // Auto-Precharge: close bank after tRTP
@@ -1390,10 +1390,10 @@ module hbm4_model (
               repeat(dynamic_rl - 2) @(posedge vif.CK_t);
               
               // Drive Preamble
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
               
@@ -1405,7 +1405,7 @@ module hbm4_model (
                   read_valid_pc1 = 1;
                   last_read_state_pc1 = next_st;
                   
-                  vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0;
+                  vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0;
                   @(negedge vif.WCK_t);
                   
                   next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc1, rdbi_en);
@@ -1413,14 +1413,14 @@ module hbm4_model (
                   read_dbi_pc1 = next_st[35:32];
                   last_read_state_pc1 = next_st;
                   
-                  vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1;
+                  vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1;
                   @(posedge vif.WCK_t);
                 end
               end
               
               // Postamble
-              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
-              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 1; vif.RDQS_c_PC1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_PC1 <= 0; vif.RDQS_c_PC1 <= 1; @(posedge vif.WCK_t);
               read_valid_pc1 = 0;
             end
           join_none
@@ -1447,12 +1447,12 @@ module hbm4_model (
   logic wby_shift;
   
   // WSO mux: instruction reg, bypass, remap, or boundary
-  assign vif.WSO = (vif.SelectVR) ? wir_shift[0] :
+  assign vif.WSO = (vif.SELECTWIR) ? wir_shift[0] :
                    (wir == 8'hFF) ? wby_shift :
                    (wir == 8'h02) ? remap_shift[0] : wbr_shift[0];
 
   always @(posedge vif.WRCK) begin
-    if (!vif.RESET_n) begin
+    if (!vif.RESET_n || !vif.WRST_n) begin
       wir <= 8'h00;
       wbr <= 32'h00000000;
       wby <= 1'b0;
@@ -1464,29 +1464,29 @@ module hbm4_model (
       for (int i = 0; i < REMAP_TABLE_SIZE; i++) remap_table[i].valid <= 1'b0;
       remap_count <= 0;
     end else begin
-      if (vif.SelectVR) begin
+      if (vif.SELECTWIR) begin
         // Instruction Register Access
-        if (vif.CaptureWR) begin
+        if (vif.CAPTUREWR) begin
           wir_shift <= wir;
-        end else if (vif.ShiftWR) begin
+        end else if (vif.SHIFTWR) begin
           wir_shift <= {vif.WSI, wir_shift[7:1]};
-        end else if (vif.UpdateWR) begin
+        end else if (vif.UPDATEWR) begin
           wir <= wir_shift;
         end
       end else begin
         // Data Register Access (Based on WIR)
         if (wir == 8'hFF) begin // Bypass
-          if (vif.CaptureWR) begin
+          if (vif.CAPTUREWR) begin
             wby_shift <= 1'b0;
-          end else if (vif.ShiftWR) begin
+          end else if (vif.SHIFTWR) begin
             wby_shift <= vif.WSI;
           end
         end else if (wir == 8'h02) begin // Remap Register
-          if (vif.CaptureWR) begin
+          if (vif.CAPTUREWR) begin
             remap_shift <= remap_reg;
-          end else if (vif.ShiftWR) begin
+          end else if (vif.SHIFTWR) begin
             remap_shift <= {vif.WSI, remap_shift[REMAP_REG_WIDTH-1:1]};
-          end else if (vif.UpdateWR) begin
+          end else if (vif.UPDATEWR) begin
             remap_reg <= remap_shift;
             // Program remap entry on update
             if (remap_shift[REMAP_REG_WIDTH-1] && remap_count < REMAP_TABLE_SIZE) begin
@@ -1505,11 +1505,11 @@ module hbm4_model (
             end
           end
         end else begin // Default to Boundary Register
-          if (vif.CaptureWR) begin
+          if (vif.CAPTUREWR) begin
             wbr_shift <= wbr;
-          end else if (vif.ShiftWR) begin
+          end else if (vif.SHIFTWR) begin
             wbr_shift <= {vif.WSI, wbr_shift[31:1]};
-          end else if (vif.UpdateWR) begin
+          end else if (vif.UPDATEWR) begin
             wbr <= wbr_shift;
           end
         end

@@ -13,8 +13,9 @@ module hbm4_bfm (
     vif.AWORD = '0;
     vif.DWORD_PC0 = '0;
     vif.DWORD_PC1 = '0;
-    vif.WDQS_t_pc0 = 0; vif.WDQS_c_pc0 = 1;
-    vif.WDQS_t_pc1 = 0; vif.WDQS_c_pc1 = 1;
+    vif.WDQS_t_PC0 = 0; vif.WDQS_c_PC0 = 1;
+    vif.WDQS_t_PC1 = 0; vif.WDQS_c_PC1 = 1;
+    vif.WRST_n = 1;
   end
 
   // BFM Tracking of Latencies
@@ -76,10 +77,10 @@ endfunction
   
   task write_ieee1500_instruction(input logic [7:0] instr);
     begin
-      vif.SelectVR = 1;
-      vif.CaptureWR = 0;
-      vif.ShiftWR = 1;
-      vif.UpdateWR = 0;
+      vif.SELECTWIR = 1;
+      vif.CAPTUREWR = 0;
+      vif.SHIFTWR = 1;
+      vif.UPDATEWR = 0;
       
       for (int i = 0; i < 8; i++) begin
         vif.WSI = instr[i];
@@ -87,25 +88,25 @@ endfunction
         #5ns vif.WRCK = 0;
       end
       
-      vif.ShiftWR = 0;
-      vif.UpdateWR = 1;
+      vif.SHIFTWR = 0;
+      vif.UPDATEWR = 1;
       #5ns vif.WRCK = 1;
       #5ns vif.WRCK = 0;
-      vif.UpdateWR = 0;
+      vif.UPDATEWR = 0;
     end
   endtask
   
   task write_ieee1500_data(input logic [31:0] data, output logic [31:0] read_data);
     begin
-      vif.SelectVR = 0;
-      vif.CaptureWR = 1;
-      vif.ShiftWR = 0;
-      vif.UpdateWR = 0;
+      vif.SELECTWIR = 0;
+      vif.CAPTUREWR = 1;
+      vif.SHIFTWR = 0;
+      vif.UPDATEWR = 0;
       #5ns vif.WRCK = 1;
       #5ns vif.WRCK = 0;
-      vif.CaptureWR = 0;
+      vif.CAPTUREWR = 0;
       
-      vif.ShiftWR = 1;
+      vif.SHIFTWR = 1;
       for (int i = 0; i < 32; i++) begin
         vif.WSI = data[i];
         read_data[i] = vif.WSO;
@@ -113,11 +114,11 @@ endfunction
         #5ns vif.WRCK = 0;
       end
       
-      vif.ShiftWR = 0;
-      vif.UpdateWR = 1;
+      vif.SHIFTWR = 0;
+      vif.UPDATEWR = 1;
       #5ns vif.WRCK = 1;
       #5ns vif.WRCK = 0;
-      vif.UpdateWR = 0;
+      vif.UPDATEWR = 0;
     end
   endtask
 
@@ -142,8 +143,8 @@ endfunction
       vif.DWORD_PC1 <= dword;
 
       // Initialize WDQS to static 0
-      vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
-      vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+      vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
+      vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
 
       wait (vif.RESET_n == 1);
       
@@ -323,9 +324,9 @@ endfunction
         
         // Four-pulse Preamble (4 WCK cycles = 2 tCK)
         for (int p = 0; p < 4; p++) begin
-          vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+          vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
           @(negedge vif.WCK_t);
-          vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+          vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
           @(posedge vif.WCK_t);
         end
         begin : wdbi_processing_pc0
@@ -340,7 +341,7 @@ endfunction
             ui0_data = data[(beat*2)*32 +: 32];
             ui1_data = data[(beat*2+1)*32 +: 32];
             
-            vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+            vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
             dq_pc0_en = 1;
             
             next_st = process_dbi_word(ui0_data, last_write_state_pc0, wdbi_en);
@@ -349,7 +350,7 @@ endfunction
             last_write_state_pc0 = next_st;
             
             @(negedge vif.WCK_t);
-            vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+            vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
             
             next_st = process_dbi_word(ui1_data, last_write_state_pc0, wdbi_en);
             dq_pc0_drive = next_st[31:0];
@@ -363,12 +364,12 @@ endfunction
         
         // Two-pulse Postamble (2 WCK cycles = 1 tCK)
         for (int p = 0; p < 2; p++) begin
-          vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+          vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
           @(negedge vif.WCK_t);
-          vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+          vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
           @(posedge vif.WCK_t);
         end
-        vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+        vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
       end
     join_none
     
@@ -401,25 +402,25 @@ endfunction
               repeat(rl_pc0 - 2) @(posedge vif.CK_t);
               // Four-pulse Preamble (4 WCK cycles = 2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Toggle for 4 WCK cycles duration (2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Two-pulse Postamble (2 WCK cycles = 1 tCK)
               for (int p = 0; p < 2; p++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
             end
@@ -427,8 +428,8 @@ endfunction
 
           // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
           repeat(2) begin
-            @(posedge vif.RDQS_t_pc0);
-            @(negedge vif.RDQS_t_pc0);
+            @(posedge vif.RDQS_t_PC0);
+            @(negedge vif.RDQS_t_PC0);
           end
           
           // We no longer wait for RL using CK, we just wait for RDQS edges!
@@ -436,14 +437,14 @@ endfunction
             automatic logic [31:0] dq_sampled;
             automatic logic [3:0]  dbi_sampled;
             
-            @(posedge vif.RDQS_t_pc0);
+            @(posedge vif.RDQS_t_PC0);
             dq_sampled = vif.DQ_PC0;
             dbi_sampled = vif.DBI_PC0;
             for (int b = 0; b < 4; b++) begin
               read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
             end
             
-            @(negedge vif.RDQS_t_pc0);
+            @(negedge vif.RDQS_t_PC0);
             dq_sampled = vif.DQ_PC0;
             dbi_sampled = vif.DBI_PC0;
             for (int b = 0; b < 4; b++) begin
@@ -479,9 +480,9 @@ endfunction
           
           // Four-pulse Preamble (4 WCK cycles = 2 tCK)
           for (int p = 0; p < 4; p++) begin
-            vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+            vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
             @(negedge vif.WCK_t);
-            vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+            vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
             @(posedge vif.WCK_t);
           end
           begin : wdbi_processing_pc1
@@ -496,7 +497,7 @@ endfunction
               ui0_data = data[(beat*2)*32 +: 32];
               ui1_data = data[(beat*2+1)*32 +: 32];
               
-              vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+              vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
               dq_pc1_en = 1;
               
               next_st = hbm4_pkg::process_dbi_word(ui0_data, last_write_state_pc1, wdbi_en);
@@ -505,7 +506,7 @@ endfunction
               last_write_state_pc1 = next_st;
               
               @(negedge vif.WCK_t);
-              vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+              vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
               
               next_st = hbm4_pkg::process_dbi_word(ui1_data, last_write_state_pc1, wdbi_en);
               dq_pc1_drive = next_st[31:0];
@@ -519,12 +520,12 @@ endfunction
           
           // Two-pulse Postamble (2 WCK cycles = 1 tCK)
           for (int p = 0; p < 2; p++) begin
-            vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+            vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
             @(negedge vif.WCK_t);
-            vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+            vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
             @(posedge vif.WCK_t);
           end
-          vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+          vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
         end
       join_none
       
@@ -557,25 +558,25 @@ endfunction
               repeat(rl_pc1 - 2) @(posedge vif.CK_t);
               // Four-pulse Preamble (4 WCK cycles = 2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Toggle for 4 WCK cycles duration (2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Two-pulse Postamble (2 WCK cycles = 1 tCK)
               for (int p = 0; p < 2; p++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
             end
@@ -583,8 +584,8 @@ endfunction
 
           // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
           repeat(2) begin
-            @(posedge vif.RDQS_t_pc1);
-            @(negedge vif.RDQS_t_pc1);
+            @(posedge vif.RDQS_t_PC1);
+            @(negedge vif.RDQS_t_PC1);
           end
           
           // We no longer wait for RL using CK, we just wait for RDQS edges!
@@ -592,14 +593,14 @@ endfunction
             automatic logic [31:0] dq_sampled;
             automatic logic [3:0]  dbi_sampled;
             
-            @(posedge vif.RDQS_t_pc1);
+            @(posedge vif.RDQS_t_PC1);
             dq_sampled = vif.DQ_PC1;
             dbi_sampled = vif.DBI_PC1;
             for (int b = 0; b < 4; b++) begin
               read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
             end
             
-            @(negedge vif.RDQS_t_pc1);
+            @(negedge vif.RDQS_t_PC1);
             dq_sampled = vif.DQ_PC1;
             dbi_sampled = vif.DBI_PC1;
             for (int b = 0; b < 4; b++) begin
@@ -785,25 +786,25 @@ endfunction
               repeat(rl_pc0 - 2) @(posedge vif.CK_t);
               // Four-pulse Preamble (4 WCK cycles = 2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Toggle for 4 WCK cycles duration (2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Two-pulse Postamble (2 WCK cycles = 1 tCK)
               for (int p = 0; p < 2; p++) begin
-                vif.WDQS_t_pc0 <= 1; vif.WDQS_c_pc0 <= 0;
+                vif.WDQS_t_PC0 <= 1; vif.WDQS_c_PC0 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc0 <= 0; vif.WDQS_c_pc0 <= 1;
+                vif.WDQS_t_PC0 <= 0; vif.WDQS_c_PC0 <= 1;
                 @(posedge vif.WCK_t);
               end
             end
@@ -811,8 +812,8 @@ endfunction
 
           // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
           repeat(2) begin
-            @(posedge vif.RDQS_t_pc0);
-            @(negedge vif.RDQS_t_pc0);
+            @(posedge vif.RDQS_t_PC0);
+            @(negedge vif.RDQS_t_PC0);
           end
           
           // We no longer wait for RL using CK, we just wait for RDQS edges!
@@ -820,14 +821,14 @@ endfunction
             automatic logic [31:0] dq_sampled;
             automatic logic [3:0]  dbi_sampled;
             
-            @(posedge vif.RDQS_t_pc0);
+            @(posedge vif.RDQS_t_PC0);
             dq_sampled = vif.DQ_PC0;
             dbi_sampled = vif.DBI_PC0;
             for (int b = 0; b < 4; b++) begin
               read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
             end
             
-            @(negedge vif.RDQS_t_pc0);
+            @(negedge vif.RDQS_t_PC0);
             dq_sampled = vif.DQ_PC0;
             dbi_sampled = vif.DBI_PC0;
             for (int b = 0; b < 4; b++) begin
@@ -867,25 +868,25 @@ endfunction
               repeat(rl_pc1 - 2) @(posedge vif.CK_t);
               // Four-pulse Preamble (4 WCK cycles = 2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Toggle for 4 WCK cycles duration (2 tCK)
               for (int beat = 0; beat < 4; beat++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
               
               // Two-pulse Postamble (2 WCK cycles = 1 tCK)
               for (int p = 0; p < 2; p++) begin
-                vif.WDQS_t_pc1 <= 1; vif.WDQS_c_pc1 <= 0;
+                vif.WDQS_t_PC1 <= 1; vif.WDQS_c_PC1 <= 0;
                 @(negedge vif.WCK_t);
-                vif.WDQS_t_pc1 <= 0; vif.WDQS_c_pc1 <= 1;
+                vif.WDQS_t_PC1 <= 0; vif.WDQS_c_PC1 <= 1;
                 @(posedge vif.WCK_t);
               end
             end
@@ -893,8 +894,8 @@ endfunction
 
           // Skip the RDQS 2-pulse preamble (2 WCK cycles = 1 tCK of toggling)
           repeat(2) begin
-            @(posedge vif.RDQS_t_pc1);
-            @(negedge vif.RDQS_t_pc1);
+            @(posedge vif.RDQS_t_PC1);
+            @(negedge vif.RDQS_t_PC1);
           end
           
           // We no longer wait for RL using CK, we just wait for RDQS edges!
@@ -902,14 +903,14 @@ endfunction
             automatic logic [31:0] dq_sampled;
             automatic logic [3:0]  dbi_sampled;
             
-            @(posedge vif.RDQS_t_pc1);
+            @(posedge vif.RDQS_t_PC1);
             dq_sampled = vif.DQ_PC1;
             dbi_sampled = vif.DBI_PC1;
             for (int b = 0; b < 4; b++) begin
               read_data[(beat*2)*32 + b*8 +: 8] = dbi_sampled[b] ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
             end
             
-            @(negedge vif.RDQS_t_pc1);
+            @(negedge vif.RDQS_t_PC1);
             dq_sampled = vif.DQ_PC1;
             dbi_sampled = vif.DBI_PC1;
             for (int b = 0; b < 4; b++) begin
@@ -946,36 +947,36 @@ endfunction
 
     // Phase 1: Load WIR = 0x02 (remap opcode)
     @(posedge vif.WRCK);
-    vif.SelectVR <= 1'b1;
+    vif.SELECTWIR <= 1'b1;
     @(posedge vif.WRCK);
-    vif.CaptureWR <= 1'b1;
+    vif.CAPTUREWR <= 1'b1;
     @(posedge vif.WRCK);
-    vif.CaptureWR <= 1'b0;
-    vif.ShiftWR <= 1'b1;
+    vif.CAPTUREWR <= 1'b0;
+    vif.SHIFTWR <= 1'b1;
     for (i = 0; i < 8; i++) begin
       vif.WSI <= wir_data[i];
       @(posedge vif.WRCK);
     end
-    vif.ShiftWR <= 1'b0;
-    vif.UpdateWR <= 1'b1;
+    vif.SHIFTWR <= 1'b0;
+    vif.UPDATEWR <= 1'b1;
     @(posedge vif.WRCK);
-    vif.UpdateWR <= 1'b0;
-    vif.SelectVR <= 1'b0;
+    vif.UPDATEWR <= 1'b0;
+    vif.SELECTWIR <= 1'b0;
 
     // Phase 2: Shift in remap data (37 bits, LSB first)
     @(posedge vif.WRCK);
-    vif.CaptureWR <= 1'b1;
+    vif.CAPTUREWR <= 1'b1;
     @(posedge vif.WRCK);
-    vif.CaptureWR <= 1'b0;
-    vif.ShiftWR <= 1'b1;
+    vif.CAPTUREWR <= 1'b0;
+    vif.SHIFTWR <= 1'b1;
     for (i = 0; i < REMAP_REG_WIDTH; i++) begin
       vif.WSI <= remap_data[i];
       @(posedge vif.WRCK);
     end
-    vif.ShiftWR <= 1'b0;
-    vif.UpdateWR <= 1'b1;
+    vif.SHIFTWR <= 1'b0;
+    vif.UPDATEWR <= 1'b1;
     @(posedge vif.WRCK);
-    vif.UpdateWR <= 1'b0;
+    vif.UPDATEWR <= 1'b0;
     
     repeat(2) @(posedge vif.WRCK);
   endtask

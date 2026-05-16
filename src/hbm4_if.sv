@@ -30,10 +30,10 @@ interface hbm4_if (
   // WDQS for write data, RDQS for read data
   // One differential pair per 32-bit DWORD (so 1 pair per PC for 32-bit, or 2 pairs per PC?)
   // Let's assume 1 pair per PC (32 DQ bits).
-  logic WDQS_t_pc0, WDQS_c_pc0;
-  logic WDQS_t_pc1, WDQS_c_pc1;
-  logic RDQS_t_pc0, RDQS_c_pc0;
-  logic RDQS_t_pc1, RDQS_c_pc1;
+  logic WDQS_t_PC0, WDQS_c_PC0;
+  logic WDQS_t_PC1, WDQS_c_PC1;
+  logic RDQS_t_PC0, RDQS_c_PC0;
+  logic RDQS_t_PC1, RDQS_c_PC1;
 
   // Data Bus (64 bits total, 32 per PC)
   wire [DQ_WIDTH_PC-1:0] DQ_PC0;
@@ -45,25 +45,26 @@ interface hbm4_if (
 
   // IEEE 1500 Test Port Pins
   logic WRCK;
+  logic WRST_n;
   logic WSI;
   logic WSO;
-  logic ShiftWR;
-  logic UpdateWR;
-  logic CaptureWR;
-  logic SelectVR;
+  logic SHIFTWR;
+  logic UPDATEWR;
+  logic CAPTUREWR;
+  logic SELECTWIR;
 
   // Modport for the Memory Model
   modport mem (
     input  CK_t, CK_c, WCK_t, WCK_c, RESET_n, CKE,
     input  AWORD,
     input  DWORD_PC0, DWORD_PC1,
-    input  WDQS_t_pc0, WDQS_c_pc0, WDQS_t_pc1, WDQS_c_pc1,
-    output RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
+    input  WDQS_t_PC0, WDQS_c_PC0, WDQS_t_PC1, WDQS_c_PC1,
+    output RDQS_t_PC0, RDQS_c_PC0, RDQS_t_PC1, RDQS_c_PC1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
     output AERR,
     output DERR,
     output CATTRIP,
-    input  WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
+    input  WRCK, WRST_n, WSI, SHIFTWR, UPDATEWR, CAPTUREWR, SELECTWIR,
     output WSO
   );
 
@@ -73,13 +74,13 @@ interface hbm4_if (
     output CKE,
     output AWORD,
     output DWORD_PC0, DWORD_PC1,
-    output WDQS_t_pc0, WDQS_c_pc0, WDQS_t_pc1, WDQS_c_pc1,
-    input  RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
+    output WDQS_t_PC0, WDQS_c_PC0, WDQS_t_PC1, WDQS_c_PC1,
+    input  RDQS_t_PC0, RDQS_c_PC0, RDQS_t_PC1, RDQS_c_PC1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
     input  AERR,
     input  DERR,
     input  CATTRIP,
-    output WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
+    output WRCK, WRST_n, WSI, SHIFTWR, UPDATEWR, CAPTUREWR, SELECTWIR,
     input  WSO
   );
 
