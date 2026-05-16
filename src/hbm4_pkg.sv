@@ -83,6 +83,7 @@ package hbm4_pkg;
 
   // Low-Power State Timings
   localparam time tPD    = 10ns;   // Power-Down minimum time
+  localparam time tXP    = 8ns;    // Power-Down Exit Time
   localparam time tXS    = 200ns;  // Self-Refresh Exit Delay
   localparam time tCKSRE = 10ns;   // Valid clock after Self-Refresh Entry
 

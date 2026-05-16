@@ -70,6 +70,7 @@ module hbm4_model (
   } power_state_e;
   power_state_e power_state = PWR_ACTIVE;
   time last_pd_entry_time = 0;
+  time last_pd_exit_time = 0;
   time last_sr_exit_time = 0;
 
   // Initialization State
@@ -202,6 +203,10 @@ module hbm4_model (
       last_global_act_time <= 0;
       aerr_timer <= 0;
       aerr_out <= 0;
+      power_state <= PWR_ACTIVE;
+      last_pd_entry_time <= 0;
+      last_pd_exit_time <= 0;
+      last_sr_exit_time <= 0;
     end else begin
       // Decode AWORD command
       aword_t aword;
@@ -293,6 +298,7 @@ module hbm4_model (
         // Protocol Check
         if (power_state != PWR_ACTIVE) $error("[%0t] HBM4_PROTOCOL_ERROR: Command issued while in low-power state!", $time);
         if (($time - last_sr_exit_time) < tXS && last_sr_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXS violation.", $time);
+        if (($time - last_pd_exit_time) < tXP && last_pd_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXP violation. Expected %0t, got %0t.", $time, tXP, ($time - last_pd_exit_time));
         if (bank_state[bank_idx] != BANK_IDLE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: ACTIVATE to already active bank %0d!", $time, bank_idx);
         end
@@ -449,6 +455,57 @@ module hbm4_model (
         end
         last_ref_time <= $time;
         $display("[%0t] HBM4_MODEL: ALL-BANK REFRESH", $time);
+      end
+      else if (aword.CMD == CMD_PDE) begin
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: PDE issued while not in ACTIVE state (current: %s)!", $time, power_state.name());
+        end
+        // Determine pre-PD or active-PD based on bank states
+        begin
+          logic any_active = 0;
+          for (int i = 0; i < NUM_BANKS; i++) begin
+            if (bank_state[i] == BANK_ACTIVE) any_active = 1;
+          end
+          if (any_active)
+            power_state <= PWR_ACT_PD;
+          else
+            power_state <= PWR_PRE_PD;
+        end
+        last_pd_entry_time <= $time;
+        $display("[%0t] HBM4_MODEL: POWER-DOWN ENTRY", $time);
+      end
+      else if (aword.CMD == CMD_PDX) begin
+        if (power_state != PWR_PRE_PD && power_state != PWR_ACT_PD) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: PDX issued while not in Power-Down state (current: %s)!", $time, power_state.name());
+        end
+        // Check tPD minimum
+        if (($time - last_pd_entry_time) < tPD && last_pd_entry_time != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tPD violation on PDX. Power-Down held for %0t, minimum is %0t.", $time, ($time - last_pd_entry_time), tPD);
+        end
+        power_state <= PWR_ACTIVE;
+        last_pd_exit_time <= $time;
+        $display("[%0t] HBM4_MODEL: POWER-DOWN EXIT", $time);
+      end
+      else if (aword.CMD == CMD_SRE) begin
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: SRE issued while not in ACTIVE state (current: %s)!", $time, power_state.name());
+        end
+        // All banks must be idle for self-refresh
+        for (int i = 0; i < NUM_BANKS; i++) begin
+          if (bank_state[i] != BANK_IDLE) begin
+            $error("[%0t] HBM4_PROTOCOL_ERROR: SRE issued while bank %0d is ACTIVE!", $time, i);
+          end
+        end
+        power_state <= PWR_SELF_REF;
+        $display("[%0t] HBM4_MODEL: SELF-REFRESH ENTRY", $time);
+      end
+      else if (aword.CMD == CMD_SRX) begin
+        if (power_state != PWR_SELF_REF) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: SRX issued while not in Self-Refresh state (current: %s)!", $time, power_state.name());
+        end
+        power_state <= PWR_ACTIVE;
+        last_sr_exit_time <= $time;
+        $display("[%0t] HBM4_MODEL: SELF-REFRESH EXIT", $time);
       end
       end // End of initialized condition
       end // End of parity else block
