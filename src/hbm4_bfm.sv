@@ -53,6 +53,22 @@ module hbm4_bfm (
   logic [35:0] last_write_state_pc0 = '0; // {DBI[3:0], DQ[31:0]}
   logic [35:0] last_write_state_pc1 = '0;
 
+  logic inject_aerr = 0;
+  task inject_parity_error(input logic en);
+    inject_aerr = en;
+  endtask
+
+  function automatic logic calc_parity_aword(aword_t a);
+    begin
+      return ^({a.R_ADDR, a.BA, a.BG, a.CMD});
+    end
+  endfunction
+function automatic logic calc_parity_dword(dword_t d);
+  begin
+    if (d.CMD == CMD_MRR || d.CMD == CMD_MRS) return d.C;
+    return ^({d.C_ADDR, d.BA, d.BG, d.CMD});
+  end
+endfunction
   // Task for Power-up and Initialization
   task init();
     begin
@@ -64,10 +80,12 @@ module hbm4_bfm (
       // Setup PDE state for when reset goes high
       aword = '0;
       aword.CMD = CMD_PDE;
+      aword.R = calc_parity_aword(aword);
       vif.AWORD <= aword;
       
       dword = '0;
       dword.CMD = CMD_NOP;
+      dword.C = calc_parity_dword(dword);
       vif.DWORD_PC0 <= dword;
       vif.DWORD_PC1 <= dword;
 
@@ -86,6 +104,7 @@ module hbm4_bfm (
       
       // Exit PDE (Drive R[3:0] HIGH -> NOP)
       aword.CMD = CMD_NOP;
+      aword.R = calc_parity_aword(aword);
       vif.AWORD <= aword;
       $display("[%0t] HBM4_BFM: Exited PDE. Waiting tINIT5 (200ns)", $time);
       
@@ -123,7 +142,7 @@ module hbm4_bfm (
       aword.BG = bg;
       aword.BA = ba;
       aword.R_ADDR = row; // Simplified
-      aword.R = 0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);
       vif.AWORD <= aword;
@@ -141,7 +160,7 @@ module hbm4_bfm (
       aword.BG = bg;
       aword.BA = ba;
       aword.R_ADDR = '0;
-      aword.R = 0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);
       vif.AWORD <= aword;
@@ -159,7 +178,7 @@ module hbm4_bfm (
       aword.BG = '0;
       aword.BA = '0;
       aword.R_ADDR = '0;
-      aword.R = 0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);
       vif.AWORD <= aword;
@@ -177,7 +196,7 @@ module hbm4_bfm (
       aword.BG = bg;
       aword.BA = ba;
       aword.R_ADDR = '0;
-      aword.R = 0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);
       vif.AWORD <= aword;
@@ -195,7 +214,7 @@ module hbm4_bfm (
     dword.BG = bg;
     dword.BA = ba;
     dword.C_ADDR = col;
-    dword.C = 0;
+    dword.C = calc_parity_dword(dword);
     
     @(posedge vif.CK_t);
     vif.DWORD_PC0 <= dword;
@@ -269,7 +288,7 @@ module hbm4_bfm (
       dword.BG = bg;
       dword.BA = ba;
       dword.C_ADDR = col;
-      dword.C = 0;
+      dword.C = calc_parity_dword(dword);
       
       @(posedge vif.CK_t);
       vif.DWORD_PC0 <= dword;
@@ -351,7 +370,7 @@ module hbm4_bfm (
       dword.BG = bg;
       dword.BA = ba;
       dword.C_ADDR = col;
-      dword.C = 0;
+      dword.C = calc_parity_dword(dword);
       
       @(posedge vif.CK_t);
       vif.DWORD_PC1 <= dword;
@@ -425,7 +444,7 @@ module hbm4_bfm (
       dword.BG = bg;
       dword.BA = ba;
       dword.C_ADDR = col;
-      dword.C = 0;
+      dword.C = calc_parity_dword(dword);
       
       @(posedge vif.CK_t);
       vif.DWORD_PC1 <= dword;
@@ -507,7 +526,7 @@ module hbm4_bfm (
       aword.BG = '0;
       aword.BA = '0;
       aword.R_ADDR = '0;
-      aword.R = 0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
       
       @(posedge vif.CK_t);
       vif.AWORD <= aword;

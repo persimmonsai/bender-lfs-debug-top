@@ -59,6 +59,9 @@ package hbm4_pkg;
   localparam time tRP  = 16ns;
   localparam time tRAS = 30ns;
   localparam time tRC  = 46ns; // tRAS + tRP
+  localparam time tFAW   = 16ns; // Four Activate Window
+  localparam time tRRD_L = 6ns;  // Row-to-Row Delay (Same BG)
+  localparam time tRRD_S = 4ns;  // Row-to-Row Delay (Diff BG)
 
   // Advanced Timing Parameters
   localparam time tCCD_L = 4ns;  // 4 nCK

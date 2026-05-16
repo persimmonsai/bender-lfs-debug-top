@@ -97,6 +97,7 @@ module tb_top;
   // ------------------------------------------------------------------------
 
   task test_mrs_config();
+    begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: MRS Configuration", $time);
       $display("[%0t] TB_TOP: ========================================\n", $time);
@@ -104,6 +105,7 @@ module tb_top;
       // MRS is now automatically configured by the BFM init() task for all 32 channels.
       $display("[%0t] TB_TOP: Skipping manual MRS configuration as BFM auto-configures.", $time);
       #0;
+    end
   endtask
 
   task test_basic_rw_bursts();
@@ -138,6 +140,84 @@ module tb_top;
     end
   endtask
 
+    task test_parity_error();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Command Parity Error (AERR)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Injecting Parity Error on next AWORD", $time);
+      u_hbm4_bfm[0].inject_parity_error(1);
+      
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      
+      #(4ns);
+      if (channel_if[0].ctrl.AERR === 1'b1) begin
+         $display("[%0t] TB_TOP: PASS - AERR successfully asserted", $time);
+      end else begin
+         $error("[%0t] TB_TOP: FAIL - AERR did not assert", $time);
+      end
+      
+      #(10ns);
+      
+      $display("[%0t] TB_TOP: Issuing valid ACTIVATE to Bank 0", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS + 1ns);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+    end
+  endtask
+
+  task test_timing_faw_rrd();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: tFAW, tRRD_L, tRRD_S Restrictions", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Testing tRRD_S (Diff BG)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRRD_S - 1ns);
+      $display("[%0t] TB_TOP: Expecting tRRD_S violation...", $time);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0200);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Testing tRRD_L (Same BG)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRRD_S);
+      $display("[%0t] TB_TOP: Expecting tRRD_L violation...", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
+
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      $display("[%0t] TB_TOP: Testing tFAW (Four Activate Window)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRRD_S);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0200);
+      #(tRRD_S);
+      u_hbm4_bfm[0].activate(2'b10, 4'b0010, 15'h0300);
+      #(tRRD_S);
+      u_hbm4_bfm[0].activate(2'b11, 4'b0011, 15'h0400);
+      
+      #(tRRD_S - 1ns); 
+      $display("[%0t] TB_TOP: Expecting tFAW violation...", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0100, 15'h0500);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+    end
+  endtask
+
+
   task test_timing_ccd();
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
@@ -146,6 +226,7 @@ module tb_top;
       
       $display("[%0t] TB_TOP: Issuing ACTIVATE to Bank 1 and Bank 2", $time);
       u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200); // Bank 1
+      #(tRRD_S);
       u_hbm4_bfm[0].activate(2'b01, 4'b0010, 15'h0300); // Bank 2 (Diff BG)
       
       #(tRCD);
@@ -192,8 +273,9 @@ module tb_top;
       // Let's just precharge all to be safe before starting)
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
-      
+
       u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); // BG0, BA0
+      #(tRRD_L);
       u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0100); // BG0, BA1 (Same BG)
       #(tRCD);
       
@@ -403,6 +485,7 @@ module tb_top;
       
       $display("[%0t] TB_TOP: Activating Bank 0 and Bank 1", $time);
       u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRRD_L);
       u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
       #(tRCD + tRAS); // Wait until banks are active and meet tRAS
       
@@ -441,6 +524,24 @@ module tb_top;
   endtask
 
   // ------------------------------------------------------------------------
+  // Timeout Block
+  // ------------------------------------------------------------------------
+  initial begin
+    #(50ms);
+    $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
+    $finish(2);
+  end
+
+  // ------------------------------------------------------------------------
+  // Timeout Block
+  // ------------------------------------------------------------------------
+  initial begin
+    #(10ms);
+    $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
+    $finish(2);
+  end
+
+  // ------------------------------------------------------------------------
   // Master Test Sequence
   // ------------------------------------------------------------------------
   initial begin
@@ -463,6 +564,7 @@ module tb_top;
       if (test_name == "test_mrs_config") test_mrs_config();
       else if (test_name == "test_mrr") test_mrr();
       else if (test_name == "test_basic_rw_bursts") test_basic_rw_bursts();
+      else if (test_name == "test_parity_error") test_parity_error();
       else if (test_name == "test_timing_ccd") test_timing_ccd();
       else if (test_name == "test_timing_rtp") test_timing_rtp();
       else if (test_name == "test_timing_wtr") test_timing_wtr();
@@ -478,6 +580,7 @@ module tb_top;
       test_mrs_config();
       test_mrr();
       test_basic_rw_bursts();
+      test_parity_error();
       test_prea_refpb();
       test_timing_ccd();
       test_timing_rtp();

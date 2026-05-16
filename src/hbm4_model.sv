@@ -30,6 +30,9 @@ module hbm4_model (
   time last_pre_time [NUM_BANKS];
   time last_bank_wr_time [NUM_BANKS];
   time last_bank_rd_time [NUM_BANKS];
+  time act_history [4];
+  time last_global_act_time = 0;
+  logic [1:0] last_act_bg = 0;
 
   // Global PC Trackers
   time last_rd_time_pc0 = 0, last_wr_time_pc0 = 0;
@@ -73,6 +76,20 @@ module hbm4_model (
   time pde_entry_time = 0;
   time pde_exit_time = 0;
   
+  logic aerr_out = 0;
+  int aerr_timer = 0;
+  assign vif.AERR = aerr_out;
+
+  function automatic logic check_parity(aword_t a, dword_t d0, dword_t d1);
+    logic calc_p_a;
+    logic calc_p_d0;
+    logic calc_p_d1;
+    calc_p_a = ^({a.R_ADDR, a.BA, a.BG, a.CMD});
+    calc_p_d0 = (d0.CMD == CMD_MRR || d0.CMD == CMD_MRS) ? d0.C : ^({d0.C_ADDR, d0.BA, d0.BG, d0.CMD});
+    calc_p_d1 = (d1.CMD == CMD_MRR || d1.CMD == CMD_MRS) ? d1.C : ^({d1.C_ADDR, d1.BA, d1.BG, d1.CMD});
+    return (calc_p_a == a.R) && (calc_p_d0 == d0.C) && (calc_p_d1 == d1.C);
+  endfunction
+
   // Timing parameters from spec
   localparam time tPW_RESET = 1000ns; // 1 us
   localparam time tINIT5    = 200ns;
@@ -163,15 +180,30 @@ module hbm4_model (
         last_bank_rd_time[i] <= 0;
         last_refpb_time[i] <= 0;
       end
+      for (int i=0; i<4; i++) act_history[i] <= 0;
+      last_global_act_time <= 0;
+      aerr_timer <= 0;
+      aerr_out <= 0;
     end else begin
       // Decode AWORD command
       aword_t aword;
       dword_t dword_pc0;
       dword_t dword_pc1;
+      
+      if (aerr_timer > 0) begin
+        aerr_timer <= aerr_timer - 1;
+        if (aerr_timer == 1) aerr_out <= 0;
+      end
+
       aword = vif.AWORD;
       dword_pc0 = dword_t'(vif.DWORD_PC0);
       dword_pc1 = dword_t'(vif.DWORD_PC1);
       
+      if (!check_parity(aword, dword_pc0, dword_pc1)) begin
+         $display("[%0t] HBM4_MODEL: PARITY ERROR DETECTED. Ignoring commands.", $time);
+         aerr_out <= 1;
+         aerr_timer <= 4;
+      end else begin
       // Initialization Sequence Checking
       if (init_state != INIT_DONE) begin
         if (init_state == INIT_WAIT_PDE) begin
@@ -264,10 +296,32 @@ module hbm4_model (
           $error("[%0t] HBM4_TIMING_ERROR: tRC violation on bank %0d. Expected %0t, got %0t", $time, bank_idx, tRC, ($time - last_act_time[bank_idx]));
         end
 
+        // Timing Check: tFAW
+        if (($time - act_history[3]) < tFAW && act_history[3] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tFAW violation. 5th ACTIVATE issued within %0t (< %0t)", $time, ($time - act_history[3]), tFAW);
+        end
+
+        // Timing Check: tRRD_L and tRRD_S
+        if (last_global_act_time != 0) begin
+          time trrd_val;
+          trrd_val = (aword.BG == last_act_bg) ? tRRD_L : tRRD_S;
+          if (($time - last_global_act_time) < trrd_val) begin
+             $error("[%0t] HBM4_TIMING_ERROR: tRRD violation. Expected %0t, got %0t", $time, trrd_val, ($time - last_global_act_time));
+          end
+        end
+
         // Execute Command
         bank_state[bank_idx] <= BANK_ACTIVE;
         active_row[bank_idx] <= aword.R_ADDR; // Assuming R_ADDR captures the whole row for now
         last_act_time[bank_idx] <= $time;
+        
+        act_history[3] <= act_history[2];
+        act_history[2] <= act_history[1];
+        act_history[1] <= act_history[0];
+        act_history[0] <= $time;
+        last_global_act_time <= $time;
+        last_act_bg <= aword.BG;
+        
         $display("[%0t] HBM4_MODEL: ACTIVATE Bank %0d, Row %0h", $time, bank_idx, aword.R_ADDR);
       end
       else if (aword.CMD == CMD_PRE) begin
@@ -373,6 +427,7 @@ module hbm4_model (
         $display("[%0t] HBM4_MODEL: ALL-BANK REFRESH", $time);
       end
       end // End of initialized condition
+      end // End of parity else block
     end
   end
 
