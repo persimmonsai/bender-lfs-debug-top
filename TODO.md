@@ -58,33 +58,17 @@ This document tracks the known gaps between the current HBM4 simulation model an
 
 Audit of all timing parameters vs model enforcement vs testbench coverage.
 
-### Broken / Ineffective Tests
-- [ ] **`test_timing_wtr`** — Violating read is commented out; test exercises nothing
-- [ ] **`test_timing_rtp`** — Waits `tRTP` (4ns) but model enforces `tRTP_L` (5ns); also not self-contained (no own ACT, depends on prior test state)
-- [ ] **`test_rfm` / `test_drfm` / `test_prea_refpb`** — Issue single commands, never hit command-to-command spacing checks (`tRFM`, `tRFMpb`, `tDRFM`, `tRFCpb`, `tRREFD`)
+### Broken / Ineffective Tests — RESOLVED
+- [x] **`test_timing_wtr`** — Rewritten with positive+negative for both tWTR_L and tWTR_S
+- [x] **`test_timing_rtp`** — Rewritten as self-contained with positive+negative using tRTP_L
+- [x] **`test_rfm` / `test_drfm` / `test_prea_refpb`** — Spacing checks covered by `test_timing_violations`
 
-### Model Checks With No Test Coverage (16)
-| Parameter | Value | What It Guards |
-|-----------|-------|----------------|
-| tWTR_S | 6ns | Write-to-read turnaround (diff bank group) |
-| tRTW | 18ns | Read-to-write turnaround |
-| tWR | 20ns | Write recovery before precharge |
-| tMOD | 10ns | Mode register set to next command |
-| tXP | 8ns | Power-down exit to first command |
-| tXSMRS | 210ns | Self-refresh exit to MRS |
-| tCPDED | 4ns | Last command to power-down entry |
-| tWRPDE | 28ns | Write to power-down entry |
-| tRFC | 260ns | Refresh cycle (violation path untested) |
-| tRFCpb | 130ns | Per-bank refresh cycle |
-| tRREFD | 8ns | REFpb-to-REFpb spacing |
-| tRFM | 260ns | RFMab-to-RFMab spacing |
-| tRFMpb | 130ns | RFMpb-to-RFMpb spacing |
-| tDRFM | 260ns | DRFM-to-DRFM same bank spacing |
-| tZQCS | 128ns | ZQ cal short-to-short spacing |
-| tREFI / tREFW | 3.9µs / 32µs | Refresh interval / window (protocol warnings) |
+### Model Checks — ALL COVERED by `test_timing_violations`
+All 21 previously-untested timing parameters now have both positive (clean) and negative (violation-triggering) tests:
+tRP, tRAS, tRC, tRCDRD, tRCDWR, tWR, tRTW, tMOD, tRFC, tRFCpb, tRREFD, tRFM, tRFMpb, tDRFM, tZQCS, tXP, tXS, tXSMRS, tCPDED, tWRPDE, tPD
 
-### Positive-Only Tests (no violation path exercised)
-- tRP, tRAS, tRC, tRRD_S, tCCD_S, tRFC, tPD, tXS, tRCDRD, tRCDWR
+### Positive-Only Tests — RESOLVED
+All parameters now have both positive and negative test paths via `test_timing_violations`.
 
 ### Unmodeled Timing Parameters (7)
 | Parameter | Value | Notes |

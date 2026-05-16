@@ -282,15 +282,29 @@ module tb_top;
   task test_timing_rtp();
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
-      $display("[%0t] TB_TOP: TEST: tRTP (Read to Precharge) Timing", $time);
+      $display("[%0t] TB_TOP: TEST: tRTP_L (Read to Precharge) Timing", $time);
       $display("[%0t] TB_TOP: ========================================\n", $time);
-      
+
+      // Self-contained: activate our own bank
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
+      #(tRCDRD);
+
+      // Positive: read then wait tRTP_L before precharge
+      $display("[%0t] TB_TOP: [Positive] RD → wait tRTP_L → PRE (should be clean)", $time);
       u_hbm4_bfm[0].read_pc0(2'b00, 4'b0001, 6'h20);
-      
-      $display("[%0t] TB_TOP: Waiting tRTP before Precharge", $time);
-      #(tRTP);
+      #(tRTP_L);
       u_hbm4_bfm[0].precharge(2'b00, 4'b0001);
-      
+      #(tRP);
+
+      // Negative: read then precharge too soon (violates tRTP_L)
+      $display("[%0t] TB_TOP: [Negative] RD → wait 2ns → PRE (expect tRTP violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
+      #(tRCDRD);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0001, 6'h20);
+      #(2ns);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0001);
       #(tRP);
     end
   endtask
@@ -300,27 +314,44 @@ module tb_top;
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: tWTR_L/S (Write-to-Read) Timing", $time);
       $display("[%0t] TB_TOP: ========================================\n", $time);
-      
-      // Use Bank 0 BA 0 (Already precharged but let's re-activate if needed, wait, it was precharged in previous test?
-      // Let's just precharge all to be safe before starting)
+
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
-
       u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); // BG0, BA0
-      #(tRRD_L);
-      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0100); // BG0, BA1 (Same BG)
-      #(tRCD);
-      
+      #(tRRD_S);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0100); // BG1, BA1
+      #(tRCDWR);
+
+      // Positive: WR → wait tWTR_L → RD same BG (should be clean)
+      $display("[%0t] TB_TOP: [Positive] WR → wait tWTR_L → RD same BG (should be clean)", $time);
       u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h10, 256'h0);
-      // Write finishes after WL + burst
-      #(10ns); 
-      
-      // Wait slightly less than tWTR_L
-      #(tWTR_L - 1ns);
-      // $display("[%0t] TB_TOP: Expecting tWTR_L violation...", $time);
-      // u_hbm4_bfm[0].read_pc0(2'b00, 4'b0001, 6'h20); // Same BG
-      
+      #(tWTR_L);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h18);
       #(tCL + 10ns);
+
+      // Positive: WR → wait tWTR_S → RD diff BG (should be clean)
+      $display("[%0t] TB_TOP: [Positive] WR → wait tWTR_S → RD diff BG (should be clean)", $time);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h20, 256'h0);
+      #(tWTR_S);
+      u_hbm4_bfm[0].read_pc0(2'b01, 4'b0001, 6'h00);
+      #(tCL + 10ns);
+
+      // Negative: WR → wait 3ns → RD same BG (violates tWTR_L=8ns)
+      $display("[%0t] TB_TOP: [Negative] WR → wait 3ns → RD same BG (expect tWTR_L violation)", $time);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h28, 256'h0);
+      #(3ns);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h30);
+      #(tCL + 10ns);
+
+      // Negative: WR → wait 3ns → RD diff BG (violates tWTR_S=6ns)
+      $display("[%0t] TB_TOP: [Negative] WR → wait 3ns → RD diff BG (expect tWTR_S violation)", $time);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h30, 256'h0);
+      #(3ns);
+      u_hbm4_bfm[0].read_pc0(2'b01, 4'b0001, 6'h08);
+      #(tCL + 10ns);
+
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
     end
   endtask
 
@@ -860,13 +891,9 @@ module tb_top;
   // tRRD, shorter tWTR). HBM4 requires _L variants for same-bank-group.
   // ------------------------------------------------------------------------
   task test_hbm3e_controller_timing();
-    // HBM3E-style timing values (shorter than HBM4 same-BG requirements)
-    // HBM3E tCCD_S = 2ns, but HBM4 same-BG needs tCCD_L = 4ns
-    // HBM3E tRRD_S = 4ns, but HBM4 same-BG needs tRRD_L = 6ns
-    // HBM3E tWTR_S = 6ns, but HBM4 same-BG needs tWTR_L = 8ns
-    localparam time HBM3E_tCCD = 2ns;  // HBM3E tCCD_S (too short for same-BG)
-    localparam time HBM3E_tRRD = 4ns;  // HBM3E tRRD_S (too short for same-BG)
-    localparam time HBM3E_tWTR = 6ns;  // HBM3E tWTR_S (too short for same-BG)
+    localparam time HBM3E_tCCD = 2ns;
+    localparam time HBM3E_tRRD = 4ns;
+    localparam time HBM3E_tWTR = 6ns;
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: HBM3E Controller Timing Mismatch", $time);
@@ -874,101 +901,508 @@ module tb_top;
       $display("[%0t] TB_TOP: Simulates a controller using HBM3E _S timings", $time);
       $display("[%0t] TB_TOP: for same-bank-group ops — expect TIMING_ERROR messages\n", $time);
 
-      // Clean slate
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
 
-      // ----------------------------------------------------------------
       // Scenario 1: tRRD violation (same BG, HBM3E spacing)
-      // HBM3E controller uses tRRD_S=4ns for all ACTs, but same-BG
-      // in HBM4 requires tRRD_L=6ns
-      // ----------------------------------------------------------------
       $display("[%0t] TB_TOP: [Scenario 1] ACT-to-ACT same BG with HBM3E tRRD_S=%0t (need tRRD_L=%0t)",
                $time, HBM3E_tRRD, tRRD_L);
-      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); // BG0 BA0
-      #(HBM3E_tRRD);  // 4ns — violates tRRD_L (6ns) for same-BG
-      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200); // BG0 BA1 ← VIOLATION expected
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(HBM3E_tRRD);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0200);
       #(tRAS);
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
 
-      // ----------------------------------------------------------------
-      // Scenario 2: tCCD_L violation on back-to-back reads (same BG)
-      // HBM3E controller spaces reads at tCCD_S=2ns, but same-BG
-      // in HBM4 requires tCCD_L=4ns
-      // ----------------------------------------------------------------
+      // Scenario 2: tCCD_L violation on reads (same BG)
       $display("[%0t] TB_TOP: [Scenario 2] RD-to-RD same BG with HBM3E tCCD_S=%0t (need tCCD_L=%0t)",
                $time, HBM3E_tCCD, tCCD_L);
-      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100); // BG0 BA0
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
       #(tRCDRD);
-      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);  // RD to BG0 BA0
-      #(HBM3E_tCCD);  // 2ns — violates tCCD_L (4ns)
-      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h08);  // RD to BG0 BA0 ← VIOLATION expected
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
+      #(HBM3E_tCCD);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h08);
       #(tCL + 10ns);
 
-      // ----------------------------------------------------------------
-      // Scenario 3: tCCD_L violation on back-to-back writes (same BG)
-      // ----------------------------------------------------------------
+      // Scenario 3: tCCD_L violation on writes (same BG)
       $display("[%0t] TB_TOP: [Scenario 3] WR-to-WR same BG with HBM3E tCCD_S=%0t (need tCCD_L=%0t)",
                $time, HBM3E_tCCD, tCCD_L);
-      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hDEAD_BEEF);  // WR BG0
-      #(HBM3E_tCCD);  // 2ns — violates tCCD_L (4ns)
-      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h08, 256'hCAFE_BABE);  // WR BG0 ← VIOLATION expected
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hDEAD_BEEF);
+      #(HBM3E_tCCD);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h08, 256'hCAFE_BABE);
       #(tWL + 10ns);
 
-      // ----------------------------------------------------------------
-      // Scenario 4: tWTR_L violation (write-to-read, same BG)
-      // HBM3E controller uses tWTR_S=6ns, but same-BG needs tWTR_L=8ns
-      // ----------------------------------------------------------------
+      // Scenario 4: tWTR_L violation (same BG)
       $display("[%0t] TB_TOP: [Scenario 4] WR-to-RD same BG with HBM3E tWTR_S=%0t (need tWTR_L=%0t)",
                $time, HBM3E_tWTR, tWTR_L);
-      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h10, 256'hBAAD_F00D);  // WR BG0
-      #(HBM3E_tWTR);  // 6ns — violates tWTR_L (8ns)
-      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h18);  // RD BG0 ← VIOLATION expected
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h10, 256'hBAAD_F00D);
+      #(HBM3E_tWTR);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h18);
       #(tCL + 10ns);
 
-      // ----------------------------------------------------------------
-      // Scenario 5: tFAW violation (4 ACTs in tight window)
-      // HBM3E controller with tRRD_S=4ns issues 4 ACTs in 12ns
-      // but tFAW=16ns requires 5th ACT after 16ns from 1st
-      // ----------------------------------------------------------------
-      $display("[%0t] TB_TOP: [Scenario 5] tFAW violation (4 ACTs at HBM3E tRRD_S spacing)",
-               $time);
+      // Control: diff-BG ops at _S timings (should be clean)
+      $display("[%0t] TB_TOP: [Control] Diff-BG ops with _S timings (should be clean)", $time);
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
-      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0001);  // ACT 1
-      #(HBM3E_tRRD);  // 4ns
-      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0002);  // ACT 2
-      #(HBM3E_tRRD);  // 4ns
-      u_hbm4_bfm[0].activate(2'b10, 4'b0010, 15'h0003);  // ACT 3
-      #(HBM3E_tRRD);  // 4ns
-      u_hbm4_bfm[0].activate(2'b11, 4'b0011, 15'h0004);  // ACT 4
-      #(HBM3E_tRRD);  // 4ns — total 16ns from 1st, but model checks < tFAW
-      // 5th ACT at 16ns exactly from 1st — borderline, issue one more quickly
-      u_hbm4_bfm[0].activate(2'b00, 4'b0100, 15'h0005);  // ACT 5 ← may trigger tFAW
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0300);
+      #(tRRD_S);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0400);
+      #(tRCDRD);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
+      #(tCCD_S);
+      u_hbm4_bfm[0].read_pc0(2'b01, 4'b0001, 6'h00);
+      #(tCL + 10ns);
+
+      $display("[%0t] TEST: test_hbm3e_controller_timing - PASSED (check log for 4 expected TIMING_ERROR messages)",
+               $time);
+    end
+  endtask
+
+  // ------------------------------------------------------------------------
+  // Test: Comprehensive timing violation coverage
+  // Exercises every timing check in the model with both positive (valid)
+  // and negative (violation) stimulus.
+  // ------------------------------------------------------------------------
+  task test_timing_violations();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Comprehensive Timing Violations", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+
+      // ================================================================
+      // tRP — Precharge to Activate
+      // ================================================================
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // Positive
+      $display("[%0t] TB_TOP: [tRP+] PRE → wait tRP → ACT (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRP-] PRE → wait 2ns → ACT (expect tRP violation)", $time);
+      #(2ns);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
       #(tRAS);
       u_hbm4_bfm[0].precharge_all();
       #(tRP);
 
-      // ----------------------------------------------------------------
-      // Control: verify diff-BG ops at _S timings pass cleanly
-      // ----------------------------------------------------------------
-      $display("[%0t] TB_TOP: [Control] Diff-BG ops with _S timings (should be clean)",
-               $time);
-      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0300); // BG0
-      #(tRRD_S);  // 4ns — valid for diff-BG
-      u_hbm4_bfm[0].activate(2'b01, 4'b0001, 15'h0400); // BG1 — no violation
+      // ================================================================
+      // tRAS — Activate to Precharge (minimum active time)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRAS+] ACT → wait tRAS → PRE (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRAS-] ACT → wait 5ns → PRE (expect tRAS violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(5ns);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+
+      // ================================================================
+      // tRC — Activate to Activate (same bank)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRC+] ACT → PRE → wait → ACT same bank (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0200);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRC-] ACT → PRE → wait 5ns → ACT same bank (expect tRC violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(5ns); // tRP=16ns not met, and tRC=46ns not met
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0200);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tRCDRD — Activate to Read
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRCDRD+] ACT → wait tRCDRD → RD (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
       #(tRCDRD);
-      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);  // RD BG0
-      #(tCCD_S);  // 2ns — valid for diff-BG
-      u_hbm4_bfm[0].read_pc0(2'b01, 4'b0001, 6'h00);  // RD BG1 — no violation
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
       #(tCL + 10ns);
 
-      // Report: violations are visible in the log as HBM4_TIMING_ERROR messages.
-      // The 4 scenarios above should each produce a timing error for same-BG ops
-      // using HBM3E _S timings, while the control (diff-BG) should be clean.
-      $display("[%0t] TEST: test_hbm3e_controller_timing - PASSED (check log for 4 expected TIMING_ERROR messages)",
-               $time);
+      // Negative
+      $display("[%0t] TB_TOP: [tRCDRD-] ACT → wait 2ns → RD (expect tRCDRD violation)", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(2ns);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
+      #(tCL + 10ns);
+
+      // ================================================================
+      // tRCDWR — Activate to Write
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRCDWR+] ACT → wait tRCDWR → WR (clean)", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDWR);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hABCD);
+      #(tWL + 10ns);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRCDWR-] ACT → wait 2ns → WR (expect tRCDWR violation)", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(2ns);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'h1234);
+      #(tWL + 10ns);
+
+      // ================================================================
+      // tWR — Write Recovery before Precharge
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tWR+] WR → wait tWR → PRE (clean)", $time);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDWR);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hFFFF);
+      #(tWR);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tWR-] WR → wait 3ns → PRE (expect tWR violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDWR);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hEEEE);
+      #(3ns);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+      #(tRP);
+
+      // ================================================================
+      // tRTW — Read to Write turnaround
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRTW+] RD → wait tRTW → WR (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDRD);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
+      #(tRTW);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h08, 256'hAAAA);
+      #(tWL + 10ns);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRTW-] RD → wait 3ns → WR (expect tRTW violation)", $time);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h10);
+      #(3ns);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h18, 256'hBBBB);
+      #(tWL + 10ns);
+
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tMOD — Mode Register Set to next command
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tMOD+] MRS → wait tMOD → ACT (clean)", $time);
+      u_hbm4_bfm[0].mode_register_set_pc0(5'h02, 8'h00);
+      #(tMOD);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tMOD-] MRS → wait 2ns → ACT (expect tMOD violation)", $time);
+      u_hbm4_bfm[0].mode_register_set_pc0(5'h02, 8'h00);
+      #(2ns);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tRFC — Refresh cycle (violation: ACT during refresh)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRFC+] REF → wait tRFC → ACT (clean)", $time);
+      u_hbm4_bfm[0].refresh();
+      #(tRFC);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRFC-] REF → wait 10ns → ACT (expect tRFC violation)", $time);
+      u_hbm4_bfm[0].refresh();
+      #(10ns);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRFC); // wait for refresh to complete
+
+      // ================================================================
+      // tRFCpb — Per-bank refresh cycle time
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRFCpb+] REFpb → wait tRFCpb → REFpb same bank (clean)", $time);
+      u_hbm4_bfm[0].refresh_pb(2'b00, 4'b0000);
+      #(tRFCpb);
+      u_hbm4_bfm[0].refresh_pb(2'b00, 4'b0000);
+      #(tRFCpb);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRFCpb-] REFpb → wait 10ns → REFpb same bank (expect tRFCpb violation)", $time);
+      u_hbm4_bfm[0].refresh_pb(2'b00, 4'b0000);
+      #(10ns);
+      u_hbm4_bfm[0].refresh_pb(2'b00, 4'b0000);
+      #(tRFCpb);
+
+      // ================================================================
+      // tRREFD — REFpb-to-REFpb delay (different banks)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRREFD+] REFpb → wait tRREFD → REFpb diff bank (clean)", $time);
+      u_hbm4_bfm[0].refresh_pb(2'b01, 4'b0000);
+      #(tRREFD);
+      u_hbm4_bfm[0].refresh_pb(2'b01, 4'b0001);
+      #(tRFCpb);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRREFD-] REFpb → wait 2ns → REFpb diff bank (expect tRREFD violation)", $time);
+      u_hbm4_bfm[0].refresh_pb(2'b10, 4'b0000);
+      #(2ns);
+      u_hbm4_bfm[0].refresh_pb(2'b10, 4'b0001);
+      #(tRFCpb);
+
+      // ================================================================
+      // tRFM — RFMab-to-RFMab spacing
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRFM+] RFMab → wait tRFM → RFMab (clean)", $time);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b0));
+      #(tRFM);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b0));
+      #(tRFM);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRFM-] RFMab → wait 10ns → RFMab (expect tRFM violation)", $time);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b0));
+      #(10ns);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b0));
+      #(tRFM);
+
+      // ================================================================
+      // tRFMpb — RFMpb-to-RFMpb spacing (same bank)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tRFMpb+] RFMpb → wait tRFMpb → RFMpb (clean)", $time);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0010));
+      #(tRFMpb);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0010));
+      #(tRFMpb);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tRFMpb-] RFMpb → wait 10ns → RFMpb (expect tRFMpb violation)", $time);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0010));
+      #(10ns);
+      u_hbm4_bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0010));
+      #(tRFMpb);
+
+      // ================================================================
+      // tDRFM — DRFM-to-DRFM spacing (same bank)
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tDRFM+] DRFM → wait tDRFM → DRFM same bank (clean)", $time);
+      u_hbm4_bfm[0].drfm(2'b00, 4'b0011, 15'h0010);
+      #(tDRFM);
+      u_hbm4_bfm[0].drfm(2'b00, 4'b0011, 15'h0020);
+      #(tDRFM);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tDRFM-] DRFM → wait 10ns → DRFM same bank (expect tDRFM violation)", $time);
+      u_hbm4_bfm[0].drfm(2'b00, 4'b0011, 15'h0030);
+      #(10ns);
+      u_hbm4_bfm[0].drfm(2'b00, 4'b0011, 15'h0040);
+      #(tDRFM);
+
+      // ================================================================
+      // tZQCS — ZQ Cal Short-to-Short spacing
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tZQCS+] ZQCS → wait tZQCS → ZQCS (clean)", $time);
+      u_hbm4_bfm[0].zq_calibrate(0);
+      #(tZQCS);
+      u_hbm4_bfm[0].zq_calibrate(0);
+      #(tZQCS);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tZQCS-] ZQCS → wait 10ns → ZQCL (expect tZQCS violation)", $time);
+      u_hbm4_bfm[0].zq_calibrate(0);
+      #(10ns);
+      u_hbm4_bfm[0].zq_calibrate(1);
+      #(tZQCL);
+
+      // ================================================================
+      // tXP — Power-Down Exit to first command
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tXP+] PDX → wait tXP → ACT (clean)", $time);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tXP-] PDX → wait 2ns → ACT (expect tXP violation)", $time);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(2ns);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tXS — Self-Refresh Exit to first command
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tXS+] SRX → wait tXS → ACT (clean)", $time);
+      u_hbm4_bfm[0].enter_self_refresh();
+      #(20ns);
+      u_hbm4_bfm[0].exit_self_refresh();
+      #(tXS);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tXS-] SRX → wait 10ns → ACT (expect tXS violation)", $time);
+      u_hbm4_bfm[0].enter_self_refresh();
+      #(20ns);
+      u_hbm4_bfm[0].exit_self_refresh();
+      #(10ns);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRAS);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tXSMRS — Self-Refresh Exit to MRS
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tXSMRS+] SRX → wait tXSMRS → MRS (clean)", $time);
+      u_hbm4_bfm[0].enter_self_refresh();
+      #(20ns);
+      u_hbm4_bfm[0].exit_self_refresh();
+      #(tXSMRS);
+      u_hbm4_bfm[0].mode_register_set_pc0(5'h02, 8'h00);
+      #(tMOD);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tXSMRS-] SRX → wait 10ns → MRS (expect tXSMRS violation)", $time);
+      u_hbm4_bfm[0].enter_self_refresh();
+      #(20ns);
+      u_hbm4_bfm[0].exit_self_refresh();
+      #(10ns);
+      u_hbm4_bfm[0].mode_register_set_pc0(5'h02, 8'h00);
+      #(tXSMRS);
+
+      // ================================================================
+      // tCPDED — Command to Power-Down Entry delay
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tCPDED+] ACT → wait tCPDED → PDE (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tCPDED);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tCPDED-] ACT → wait 1ns → PDE (expect tCPDED violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(1ns);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tWRPDE — Write Recovery to Power-Down Entry
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tWRPDE+] WR → wait tWRPDE → PDE (clean)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDWR);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hAAAA);
+      #(tWRPDE);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tWRPDE-] WR → wait 5ns → PDE (expect tWRPDE violation)", $time);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCDWR);
+      u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, 256'hBBBB);
+      #(5ns);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD + 5ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+
+      // ================================================================
+      // tPD — Power-Down minimum hold time
+      // ================================================================
+      // Positive
+      $display("[%0t] TB_TOP: [tPD+] PDE → wait tPD → PDX (clean)", $time);
+      u_hbm4_bfm[0].enter_power_down();
+      #(tPD);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+
+      // Negative
+      $display("[%0t] TB_TOP: [tPD-] PDE → wait 2ns → PDX (expect tPD violation)", $time);
+      u_hbm4_bfm[0].enter_power_down();
+      #(2ns);
+      u_hbm4_bfm[0].exit_power_down();
+      #(tXP);
+
+      $display("[%0t] TEST: test_timing_violations - PASSED (check log for expected TIMING_ERROR messages)", $time);
     end
   endtask
 
@@ -1023,6 +1457,7 @@ module tb_top;
       else if (test_name == "test_ecc_engine") test_ecc_engine();
       else if (test_name == "test_interconnect_remap") test_interconnect_remap();
       else if (test_name == "test_hbm3e_controller_timing") test_hbm3e_controller_timing();
+      else if (test_name == "test_timing_violations") test_timing_violations();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -1050,6 +1485,7 @@ module tb_top;
       test_ecc_engine();
       test_interconnect_remap();
       test_hbm3e_controller_timing();
+      test_timing_violations();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

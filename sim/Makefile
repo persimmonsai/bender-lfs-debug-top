@@ -35,7 +35,7 @@ test:
 	$(XRUN) $(XRUN_ARGS) $(SRCS) +TEST=$(TEST)
 
 # Specific test targets
-test_mrs_config test_basic_rw_bursts test_timing_ccd test_timing_rtp test_timing_wtr test_random_traffic test_concurrent_traffic test_refresh_mechanics test_hbm3e_controller_timing:
+test_mrs_config test_basic_rw_bursts test_timing_ccd test_timing_rtp test_timing_wtr test_random_traffic test_concurrent_traffic test_refresh_mechanics test_hbm3e_controller_timing test_timing_violations:
 	$(XRUN) $(XRUN_ARGS) $(SRCS) +TEST=$@
 
 # Clean simulation files
