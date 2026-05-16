@@ -729,6 +729,35 @@ module tb_top;
     
     $display("[%0t] TEST: test_auto_precharge - PASSED", $time);
   endtask
+
+  // Test: Refresh Management (RFMab/RFMpb)
+  task test_rfm();
+    $display("\n[%0t] TEST: test_rfm - Starting", $time);
+    
+    // Issue several activates to increment RAA counter
+    for (int i = 0; i < 5; i++) begin
+      bfm[0].activate(2'b00, 4'b0001, 15'(i));
+      repeat(20) @(posedge clk);
+      bfm[0].precharge(2'b00, 4'b0001);
+      repeat(20) @(posedge clk);
+    end
+    
+    // Issue RFMab — should reset all counters
+    bfm[0].rfm(.rfm_type(1'b0));
+    repeat(300) @(posedge clk); // Wait tRFM
+    
+    // Issue per-bank RFMpb
+    bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0001));
+    repeat(150) @(posedge clk); // Wait tRFMpb
+    
+    // Activate should succeed after RFM
+    bfm[0].activate(2'b00, 4'b0001, 15'h0500);
+    repeat(20) @(posedge clk);
+    bfm[0].precharge(2'b00, 4'b0001);
+    repeat(20) @(posedge clk);
+    
+    $display("[%0t] TEST: test_rfm - PASSED", $time);
+  endtask
     $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
     $finish(2);
   end
@@ -779,6 +808,7 @@ module tb_top;
       else if (test_name == "test_zq_calibration") test_zq_calibration();
       else if (test_name == "test_cattrip_temperature") test_cattrip_temperature();
       else if (test_name == "test_auto_precharge") test_auto_precharge();
+      else if (test_name == "test_rfm") test_rfm();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -801,6 +831,7 @@ module tb_top;
       test_zq_calibration();
       test_cattrip_temperature();
       test_auto_precharge();
+      test_rfm();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

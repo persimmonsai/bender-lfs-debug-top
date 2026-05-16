@@ -33,7 +33,8 @@ package hbm4_pkg;
     CMD_MRR   = 4'b1011,
     CMD_PDX   = 4'b1100,
     CMD_SRX   = 4'b1101,
-    CMD_ZQ    = 4'b1110
+    CMD_ZQ    = 4'b1110,
+    CMD_RFM   = 4'b1111  // Refresh Management (BA[3]: 0=RFMab, 1=RFMpb)
   } hbm4_cmd_e;
 
   // AWORD (Row Command Bus) Structure
@@ -96,6 +97,10 @@ package hbm4_pkg;
 
   // Auto-Precharge
   localparam int AP_BIT = 5;       // C_ADDR bit that signals auto-precharge
+
+  // Refresh Management (RFM) Timings
+  localparam time tRFM = 260ns;    // RFM cycle time (same as tRFC for all-bank)
+  localparam time tRFMpb = 130ns;  // Per-bank RFM cycle time
 
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);

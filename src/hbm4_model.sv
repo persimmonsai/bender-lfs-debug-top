@@ -55,6 +55,11 @@ module hbm4_model (
   time last_zq_time = 0;
   logic zq_cal_pending = 0;
 
+  // Refresh Management (RFM) Trackers
+  time last_rfm_time = 0;
+  time last_rfmpb_time [NUM_BANKS];
+  int  rfm_counter [NUM_BANKS]; // RAA (Row Activation Alarm) counter per bank
+
   // DBI Trackers
   logic [35:0] last_read_state_pc0 = '0; // {DBI[3:0], DQ[31:0]}
   logic [35:0] last_read_state_pc1 = '0;
@@ -402,8 +407,18 @@ module hbm4_model (
 
         // Execute Command
         bank_state[bank_idx] <= BANK_ACTIVE;
-        active_row[bank_idx] <= aword.R_ADDR; // Assuming R_ADDR captures the whole row for now
+        active_row[bank_idx] <= aword.R_ADDR;
         last_act_time[bank_idx] <= $time;
+        rfm_counter[bank_idx] <= rfm_counter[bank_idx] + 1; // RAA counter increment
+        
+        // RFM threshold warning: MR8 OP[5:4] sets RAA multiplier (0=32, 1=48, 2=64, 3=80)
+        begin
+          int raa_threshold;
+          raa_threshold = 32 + (mode_reg_pc0[8][5:4] * 16);
+          if ((rfm_counter[bank_idx] + 1) >= raa_threshold) begin
+            $warning("[%0t] HBM4_RFM_WARNING: Bank %0d RAA counter (%0d) reached threshold (%0d). RFM recommended.", $time, bank_idx, rfm_counter[bank_idx] + 1, raa_threshold);
+          end
+        end
         
         act_history[3] <= act_history[2];
         act_history[2] <= act_history[1];
@@ -598,6 +613,42 @@ module hbm4_model (
         last_zq_time <= $time;
         zq_cal_pending <= 1;
       end
+      else if (aword.CMD == CMD_RFM) begin
+        if (power_state != PWR_ACTIVE) begin
+          $error("[%0t] HBM4_PROTOCOL_ERROR: RFM issued while not in ACTIVE state!", $time);
+        end
+        
+        if (aword.BA[3]) begin
+          // RFMpb — per-bank refresh management
+          int bank_idx;
+          bank_idx = {aword.BG, aword.BA[2:0], 1'b0}; // Lower bits select bank
+          
+          if (bank_state[bank_idx] != BANK_IDLE) begin
+            $error("[%0t] HBM4_PROTOCOL_ERROR: RFMpb issued to ACTIVE bank %0d!", $time, bank_idx);
+          end
+          if (($time - last_rfmpb_time[bank_idx]) < tRFMpb && last_rfmpb_time[bank_idx] != 0) begin
+            $error("[%0t] HBM4_TIMING_ERROR: tRFMpb violation on bank %0d.", $time, bank_idx);
+          end
+          
+          last_rfmpb_time[bank_idx] <= $time;
+          rfm_counter[bank_idx] <= 0; // Reset RAA counter
+          $display("[%0t] HBM4_MODEL: RFMpb Bank %0d (RAA counter reset)", $time, bank_idx);
+        end else begin
+          // RFMab — all-bank refresh management
+          for (int i = 0; i < NUM_BANKS; i++) begin
+            if (bank_state[i] != BANK_IDLE) begin
+              $error("[%0t] HBM4_PROTOCOL_ERROR: RFMab issued while bank %0d is ACTIVE!", $time, i);
+            end
+          end
+          if (($time - last_rfm_time) < tRFM && last_rfm_time != 0) begin
+            $error("[%0t] HBM4_TIMING_ERROR: tRFM violation on RFMab.", $time);
+          end
+          
+          last_rfm_time <= $time;
+          for (int i = 0; i < NUM_BANKS; i++) rfm_counter[i] <= 0;
+          $display("[%0t] HBM4_MODEL: RFMab (all RAA counters reset)", $time);
+        end
+      end
       end // End of initialized condition
       end // End of parity else block
     end
@@ -629,6 +680,8 @@ module hbm4_model (
       last_pre_time[i] = 0;
       last_bank_wr_time[i] = 0;
       last_bank_rd_time[i] = 0;
+      last_rfmpb_time[i] = 0;
+      rfm_counter[i] = 0;
     end
   end
 

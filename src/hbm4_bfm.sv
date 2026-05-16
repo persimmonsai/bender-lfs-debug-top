@@ -633,6 +633,26 @@ endfunction
     end
   endtask
 
+  // Task to issue Refresh Management command
+  // rfm_type: 0 = RFMab (all-bank), 1 = RFMpb (per-bank)
+  // For RFMpb: bg/ba select the target bank
+  task rfm(input logic rfm_type, input logic [1:0] bg = '0, input logic [3:0] ba = '0);
+    begin
+      aword_t aword;
+      aword.CMD = CMD_RFM;
+      aword.BG = bg;
+      aword.BA = {rfm_type, ba[2:0]};
+      aword.R_ADDR = '0;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= aword;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= '0; // NOP
+    end
+  endtask
+
    // Task to issue ZQ Calibration command
   // zq_long: 0 = ZQCS (short), 1 = ZQCL (long)
   task zq_calibrate(input logic zq_long);
