@@ -1366,6 +1366,7 @@ module hbm4_model (
                 last_pre_time[b_idx] <= $time;
                 $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (RDA) PC1 Bank %0d", $time, b_idx);
               end
+            end
           join_none
         end
       end

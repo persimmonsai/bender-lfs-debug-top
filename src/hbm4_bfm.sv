@@ -946,39 +946,40 @@ endfunction
              $time, bg, ba, faulty_row, spare_row);
 
     // Phase 1: Load WIR = 0x02 (remap opcode)
-    @(posedge vif.WRCK);
-    vif.SELECTWIR <= 1'b1;
-    @(posedge vif.WRCK);
-    vif.CAPTUREWR <= 1'b1;
-    @(posedge vif.WRCK);
-    vif.CAPTUREWR <= 1'b0;
-    vif.SHIFTWR <= 1'b1;
+    vif.SELECTWIR = 1;
+    vif.CAPTUREWR = 0;
+    vif.SHIFTWR = 1;
+    vif.UPDATEWR = 0;
     for (i = 0; i < 8; i++) begin
-      vif.WSI <= wir_data[i];
-      @(posedge vif.WRCK);
+      vif.WSI = wir_data[i];
+      #5ns vif.WRCK = 1;
+      #5ns vif.WRCK = 0;
     end
-    vif.SHIFTWR <= 1'b0;
-    vif.UPDATEWR <= 1'b1;
-    @(posedge vif.WRCK);
-    vif.UPDATEWR <= 1'b0;
-    vif.SELECTWIR <= 1'b0;
+    vif.SHIFTWR = 0;
+    vif.UPDATEWR = 1;
+    #5ns vif.WRCK = 1;
+    #5ns vif.WRCK = 0;
+    vif.UPDATEWR = 0;
+    vif.SELECTWIR = 0;
 
     // Phase 2: Shift in remap data (37 bits, LSB first)
-    @(posedge vif.WRCK);
-    vif.CAPTUREWR <= 1'b1;
-    @(posedge vif.WRCK);
-    vif.CAPTUREWR <= 1'b0;
-    vif.SHIFTWR <= 1'b1;
+    vif.CAPTUREWR = 1;
+    vif.SHIFTWR = 0;
+    vif.UPDATEWR = 0;
+    #5ns vif.WRCK = 1;
+    #5ns vif.WRCK = 0;
+    vif.CAPTUREWR = 0;
+    vif.SHIFTWR = 1;
     for (i = 0; i < REMAP_REG_WIDTH; i++) begin
-      vif.WSI <= remap_data[i];
-      @(posedge vif.WRCK);
+      vif.WSI = remap_data[i];
+      #5ns vif.WRCK = 1;
+      #5ns vif.WRCK = 0;
     end
-    vif.SHIFTWR <= 1'b0;
-    vif.UPDATEWR <= 1'b1;
-    @(posedge vif.WRCK);
-    vif.UPDATEWR <= 1'b0;
-    
-    repeat(2) @(posedge vif.WRCK);
+    vif.SHIFTWR = 0;
+    vif.UPDATEWR = 1;
+    #5ns vif.WRCK = 1;
+    #5ns vif.WRCK = 0;
+    vif.UPDATEWR = 0;
   endtask
 
 endmodule

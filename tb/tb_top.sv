@@ -704,28 +704,28 @@ module tb_top;
     wdata = {8{32'hCAFE_BABE}};
     
     // Activate the bank
-    bfm[0].activate(bg, ba, 15'h0100);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(bg, ba, 15'h0100);
+    repeat(20) @(posedge CK_t);
     
     // Write with Auto-Precharge — bank should close automatically after tWR
-    bfm[0].write_ap_pc0(bg, ba, 5'h04, wdata);
-    repeat(40) @(posedge clk);
+    u_hbm4_bfm[0].write_ap_pc0(bg, ba, 5'h04, wdata);
+    repeat(40) @(posedge CK_t);
     
     // Bank should now be idle — re-activate should succeed without error
-    bfm[0].activate(bg, ba, 15'h0100);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(bg, ba, 15'h0100);
+    repeat(20) @(posedge CK_t);
     
     // Read with Auto-Precharge — bank should close automatically after tRTP
-    bfm[0].read_ap_pc0(bg, ba, 5'h04);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].read_ap_pc0(bg, ba, 5'h04);
+    repeat(30) @(posedge CK_t);
     
     // Bank should now be idle — re-activate should succeed without error
-    bfm[0].activate(bg, ba, 15'h0200);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(bg, ba, 15'h0200);
+    repeat(20) @(posedge CK_t);
     
     // Clean up
-    bfm[0].precharge(bg, ba);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].precharge(bg, ba);
+    repeat(20) @(posedge CK_t);
     
     $display("[%0t] TEST: test_auto_precharge - PASSED", $time);
   endtask
@@ -736,25 +736,25 @@ module tb_top;
     
     // Issue several activates to increment RAA counter
     for (int i = 0; i < 5; i++) begin
-      bfm[0].activate(2'b00, 4'b0001, 15'(i));
-      repeat(20) @(posedge clk);
-      bfm[0].precharge(2'b00, 4'b0001);
-      repeat(20) @(posedge clk);
+      u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'(i));
+      repeat(20) @(posedge CK_t);
+      u_hbm4_bfm[0].precharge(2'b00, 4'b0001);
+      repeat(20) @(posedge CK_t);
     end
     
     // Issue RFMab — should reset all counters
-    bfm[0].rfm(.rfm_type(1'b0));
-    repeat(300) @(posedge clk); // Wait tRFM
+    u_hbm4_bfm[0].rfm(.rfm_type(1'b0));
+    repeat(300) @(posedge CK_t); // Wait tRFM
     
     // Issue per-bank RFMpb
-    bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0001));
-    repeat(150) @(posedge clk); // Wait tRFMpb
+    u_hbm4_bfm[0].rfm(.rfm_type(1'b1), .bg(2'b00), .ba(4'b0001));
+    repeat(150) @(posedge CK_t); // Wait tRFMpb
     
     // Activate should succeed after RFM
-    bfm[0].activate(2'b00, 4'b0001, 15'h0500);
-    repeat(20) @(posedge clk);
-    bfm[0].precharge(2'b00, 4'b0001);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(2'b00, 4'b0001, 15'h0500);
+    repeat(20) @(posedge CK_t);
+    u_hbm4_bfm[0].precharge(2'b00, 4'b0001);
+    repeat(20) @(posedge CK_t);
     
     $display("[%0t] TEST: test_rfm - PASSED", $time);
   endtask
@@ -765,22 +765,22 @@ module tb_top;
     
     // Issue several activates to increment RAA counter on bank 3
     for (int i = 0; i < 5; i++) begin
-      bfm[0].activate(2'b01, 4'b0011, 15'(i));
-      repeat(20) @(posedge clk);
-      bfm[0].precharge(2'b01, 4'b0011);
-      repeat(20) @(posedge clk);
+      u_hbm4_bfm[0].activate(2'b01, 4'b0011, 15'(i));
+      repeat(20) @(posedge CK_t);
+      u_hbm4_bfm[0].precharge(2'b01, 4'b0011);
+      repeat(20) @(posedge CK_t);
     end
     
     // Issue DRFM — directed refresh management on bank 3
     // This should reset RAA counter without opening the bank for data access
-    bfm[0].drfm(2'b01, 4'b0011, 15'h0010);
-    repeat(300) @(posedge clk); // Wait tDRFM
+    u_hbm4_bfm[0].drfm(2'b01, 4'b0011, 15'h0010);
+    repeat(300) @(posedge CK_t); // Wait tDRFM
     
     // Normal activate should succeed (bank was not opened by DRFM)
-    bfm[0].activate(2'b01, 4'b0011, 15'h0100);
-    repeat(20) @(posedge clk);
-    bfm[0].precharge(2'b01, 4'b0011);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(2'b01, 4'b0011, 15'h0100);
+    repeat(20) @(posedge CK_t);
+    u_hbm4_bfm[0].precharge(2'b01, 4'b0011);
+    repeat(20) @(posedge CK_t);
     
     $display("[%0t] TEST: test_drfm - PASSED", $time);
   endtask
@@ -794,34 +794,34 @@ module tb_top;
     
     // Write known data
     wdata = {8{32'hDEAD_BEEF}};
-    bfm[0].activate(2'b10, 4'b0100, 15'h0300);
-    repeat(20) @(posedge clk);
-    bfm[0].write_pc0(2'b10, 4'b0100, 6'h08, wdata);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].activate(2'b10, 4'b0100, 15'h0300);
+    repeat(20) @(posedge CK_t);
+    u_hbm4_bfm[0].write_pc0(2'b10, 4'b0100, 6'h08, wdata);
+    repeat(30) @(posedge CK_t);
     
     // Read it back — should be clean (no ECC errors)
-    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge CK_t);
     
     // Inject single-bit error via backdoor and read — should correct silently
     addr = {2'b10, 4'b0100, 15'h0300, 6'h08};
     u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 42);
-    repeat(5) @(posedge clk);
+    repeat(5) @(posedge CK_t);
     
-    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge CK_t);
     
     // Inject double-bit error — should trigger DERR
     u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 100);
     u_hbm4_stack.ch[0].u_hbm4_model.inject_bit_error_pc0(addr, 101);
-    repeat(5) @(posedge clk);
+    repeat(5) @(posedge CK_t);
     
-    bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].read_pc0(2'b10, 4'b0100, 6'h08);
+    repeat(30) @(posedge CK_t);
     
     // Clean up
-    bfm[0].precharge(2'b10, 4'b0100);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].precharge(2'b10, 4'b0100);
+    repeat(20) @(posedge CK_t);
     
     $display("[%0t] TEST: test_ecc_engine - PASSED (SEC=%0d, DED=%0d)", $time, u_hbm4_stack.ch[0].u_hbm4_model.ecc_sec_count, u_hbm4_stack.ch[0].u_hbm4_model.ecc_ded_count);
   endtask
@@ -833,21 +833,21 @@ module tb_top;
     $display("\n[%0t] TEST: test_interconnect_remap - Starting", $time);
     
     // Program a remap: BG=0, BA=0, faulty row 0x0100 -> spare row 0x7FFF
-    bfm[0].program_remap(2'b00, 4'b0000, 15'h0100, 15'h7FFF);
-    repeat(10) @(posedge clk);
+    u_hbm4_bfm[0].program_remap(2'b00, 4'b0000, 15'h0100, 15'h7FFF);
+    repeat(10) @(posedge CK_t);
     
     // Activate the faulty row — model should redirect to spare
-    bfm[0].activate(2'b00, 4'b0000, 15'h0100);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+    repeat(20) @(posedge CK_t);
     
     // Write data to what we think is row 0x0100 (actually goes to 0x7FFF)
     wdata = {8{32'hCAFE_BABE}};
-    bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, wdata);
-    repeat(30) @(posedge clk);
+    u_hbm4_bfm[0].write_pc0(2'b00, 4'b0000, 6'h00, wdata);
+    repeat(30) @(posedge CK_t);
     
     // Precharge and re-activate spare row directly to verify data landed there
-    bfm[0].precharge(2'b00, 4'b0000);
-    repeat(20) @(posedge clk);
+    u_hbm4_bfm[0].precharge(2'b00, 4'b0000);
+    repeat(20) @(posedge CK_t);
     
     $display("[%0t] TEST: test_interconnect_remap - PASSED (remap_count=%0d)",
              $time, u_hbm4_stack.ch[0].u_hbm4_model.remap_count);
