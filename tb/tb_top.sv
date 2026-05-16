@@ -645,6 +645,52 @@ module tb_top;
     end
   endtask
 
+  task test_cattrip_temperature();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: CATTRIP and Temperature Sensing", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      // Verify CATTRIP is deasserted at normal temperature
+      if (channel_if[0].ctrl.CATTRIP !== 1'b0) begin
+        $error("[%0t] TB_TOP: FAIL - CATTRIP should be deasserted at normal temp", $time);
+      end else begin
+        $display("[%0t] TB_TOP: PASS - CATTRIP deasserted at normal temp (45°C)", $time);
+      end
+      
+      // Read MR4 to get temperature
+      $display("[%0t] TB_TOP: Reading MR4 for temperature (expect 45 = 0x2D)", $time);
+      u_hbm4_bfm[0].mrr_pc0(5'h04);
+      #(tCL + 20ns);
+      
+      // Set temperature above CATTRIP threshold via backdoor
+      $display("[%0t] TB_TOP: Setting simulated temperature to 130°C (above CATTRIP)", $time);
+      u_hbm4_stack.ch[0].u_hbm4_model.simulated_temp = 130;
+      #(10ns);
+      
+      if (channel_if[0].ctrl.CATTRIP === 1'b1) begin
+        $display("[%0t] TB_TOP: PASS - CATTRIP asserted at 130°C", $time);
+      end else begin
+        $error("[%0t] TB_TOP: FAIL - CATTRIP should be asserted at 130°C", $time);
+      end
+      
+      // Read MR4 again to verify updated temperature
+      $display("[%0t] TB_TOP: Reading MR4 for updated temperature (expect 130 = 0x82)", $time);
+      u_hbm4_bfm[0].mrr_pc0(5'h04);
+      #(tCL + 20ns);
+      
+      // Restore normal temperature
+      u_hbm4_stack.ch[0].u_hbm4_model.simulated_temp = 45;
+      #(10ns);
+      
+      if (channel_if[0].ctrl.CATTRIP === 1'b0) begin
+        $display("[%0t] TB_TOP: PASS - CATTRIP deasserted after temp restored", $time);
+      end else begin
+        $error("[%0t] TB_TOP: FAIL - CATTRIP should deassert when temp drops", $time);
+      end
+    end
+  endtask
+
   // ------------------------------------------------------------------------
   // Timeout Block
   // ------------------------------------------------------------------------
@@ -698,6 +744,7 @@ module tb_top;
       else if (test_name == "test_low_power_states") test_low_power_states();
       else if (test_name == "test_ieee1500") test_ieee1500();
       else if (test_name == "test_zq_calibration") test_zq_calibration();
+      else if (test_name == "test_cattrip_temperature") test_cattrip_temperature();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -718,6 +765,7 @@ module tb_top;
       test_random_traffic();
       test_refresh_mechanics();
       test_zq_calibration();
+      test_cattrip_temperature();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);

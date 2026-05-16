@@ -103,6 +103,28 @@ module hbm4_model (
   // Backdoor to inject an ECC error on the next read
   logic inject_ecc_error = 0;
 
+  // Temperature Simulation
+  localparam int CATTRIP_THRESHOLD = 125; // Catastrophic trip at 125°C
+  int simulated_temp = 45; // Default simulated temperature (°C)
+  logic cattrip_out = 0;
+  assign vif.CATTRIP = cattrip_out;
+
+  // CATTRIP monitoring
+  always @(posedge vif.CK_t) begin
+    if (!vif.RESET_n) begin
+      cattrip_out <= 0;
+    end else begin
+      if (simulated_temp >= CATTRIP_THRESHOLD) begin
+        if (!cattrip_out) begin
+          cattrip_out <= 1;
+          $display("[%0t] HBM4_MODEL: CATTRIP ASSERTED! Temperature %0d°C >= %0d°C threshold.", $time, simulated_temp, CATTRIP_THRESHOLD);
+        end
+      end else begin
+        cattrip_out <= 0;
+      end
+    end
+  end
+
   function automatic logic check_parity(aword_t a, dword_t d0, dword_t d1);
     logic calc_p_a;
     logic calc_p_d0;
@@ -782,7 +804,7 @@ module hbm4_model (
         // Mode Register Read for PC0
         begin
           automatic int mr_idx = {dword_pc0.C, dword_pc0.BA};
-          automatic logic [7:0] mr_val = mode_reg_pc0[mr_idx];
+          automatic logic [7:0] mr_val = (mr_idx == 4) ? simulated_temp[7:0] : mode_reg_pc0[mr_idx];
           automatic int dynamic_rl = (mode_reg_pc0[2] != 0) ? mode_reg_pc0[2] : 14;
           
           $display("[%0t] HBM4_MODEL: MRR PC0 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
@@ -979,7 +1001,7 @@ module hbm4_model (
         // Mode Register Read for PC1
         begin
           automatic int mr_idx = {dword_pc1.C, dword_pc1.BA};
-          automatic logic [7:0] mr_val = mode_reg_pc1[mr_idx];
+          automatic logic [7:0] mr_val = (mr_idx == 4) ? simulated_temp[7:0] : mode_reg_pc1[mr_idx];
           automatic int dynamic_rl = (mode_reg_pc1[2] != 0) ? mode_reg_pc1[2] : 14;
           
           $display("[%0t] HBM4_MODEL: MRR PC1 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
