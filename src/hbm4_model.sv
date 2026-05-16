@@ -109,10 +109,6 @@ module hbm4_model (
   logic [35:0] last_read_state_pc0 = '0; // {DBI[3:0], DQ[31:0]}
   logic [35:0] last_read_state_pc1 = '0;
 
-  logic pde_active_pc0 = 0;
-  logic pde_active_pc1 = 0;
-  logic [14:0] active_row_pc0 [NUM_BANKS];
-  logic [14:0] active_row_pc1 [NUM_BANKS];
 
   // Mode Registers
   logic [7:0] mode_reg_pc0 [20];

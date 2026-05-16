@@ -9,13 +9,11 @@ package hbm4_pkg;
   
   // DQ Width per Pseudo Channel is 32 bits
   localparam int DQ_WIDTH_PC = 32;
-  localparam int DQ_WIDTH_CH = DQ_WIDTH_PC * PC_PER_CH; // 64 bits
 
   // Addressing params (can vary, assuming 16Gb density per channel)
   localparam int BA_WIDTH  = 4; // 16 Banks
   localparam int BG_WIDTH  = 2; // 4 Bank Groups
   localparam int ROW_WIDTH = 15;
-  localparam int COL_WIDTH = 6; 
 
   // Commands based on JESD270-4
   typedef enum logic [3:0] {
@@ -81,7 +79,6 @@ package hbm4_pkg;
   localparam time tRTW   = 18ns; // 18 nCK
   localparam time tWR    = 20ns; // Write recovery
   localparam time tRTP_L = 5ns;  // Read-to-Precharge (same bank group)
-  localparam time tRTP_S = 4ns;  // Read-to-Precharge (diff bank group)
   localparam time tRTP   = 4ns;  // Legacy alias (minimum)
 
   // Refresh & MRS Parameters
@@ -92,13 +89,11 @@ package hbm4_pkg;
   localparam time tREFW  = 32000ns; // 32us Per-Bank Refresh Window
   localparam time tRREFD = 8ns;   // REF-to-REF delay (different bank groups)
   localparam time tMOD   = 10ns;   // MRS update delay
-  localparam time tMRD   = 10ns;   // MRS to MRS delay
 
   // Low-Power State Timings
   localparam time tPD    = 10ns;   // Power-Down minimum time
   localparam time tXP    = 8ns;    // Power-Down Exit Time
   localparam time tXS    = 200ns;  // Self-Refresh Exit Delay
-  localparam time tCKSRE = 10ns;   // Valid clock after Self-Refresh Entry
   localparam time tCPDED = 4ns;    // Command-to-Power-Down Entry Delay
   localparam time tWRPDE = 28ns;   // Write Recovery + PDE delay (tWR + tCK margin)
   localparam time tXSMRS = 210ns;  // Self-Refresh Exit to MRS delay
