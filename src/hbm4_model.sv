@@ -103,6 +103,24 @@ module hbm4_model (
   // Backdoor to inject an ECC error on the next read
   logic inject_ecc_error = 0;
 
+  // Error Logging in Mode Registers
+  // MR18: Error Status — [7:4] error type (1=parity, 2=ECC), [3:0] syndrome
+  // MR19: Error Location — [7:6] bank group, [5:2] bank, [1:0] row addr bits
+  task automatic log_parity_error();
+    mode_reg_pc0[18] = {4'h1, 4'h0}; // Type=parity, syndrome=0
+    mode_reg_pc1[18] = {4'h1, 4'h0};
+    $display("[%0t] HBM4_MODEL: Parity error logged to MR18=0x%02h", $time, mode_reg_pc0[18]);
+  endtask
+
+  task automatic log_ecc_error(input logic [1:0] bg, input logic [3:0] ba, input logic [14:0] row, input logic [3:0] syndrome);
+    mode_reg_pc0[18] = {4'h2, syndrome};     // Type=ECC, syndrome nibble
+    mode_reg_pc1[18] = {4'h2, syndrome};
+    mode_reg_pc0[19] = {bg, ba, row[1:0]};   // Bank group, bank, row LSBs
+    mode_reg_pc1[19] = {bg, ba, row[1:0]};
+    $display("[%0t] HBM4_MODEL: ECC error logged to MR18=0x%02h, MR19=0x%02h (BG=%0d, BA=%0d, Row=0x%04h)", 
+             $time, mode_reg_pc0[18], mode_reg_pc0[19], bg, ba, row);
+  endtask
+
   // Temperature Simulation
   localparam int CATTRIP_THRESHOLD = 125; // Catastrophic trip at 125°C
   int simulated_temp = 45; // Default simulated temperature (°C)
@@ -258,6 +276,7 @@ module hbm4_model (
          $display("[%0t] HBM4_MODEL: PARITY ERROR DETECTED. Ignoring commands.", $time);
          aerr_out <= 1;
          aerr_timer <= 4;
+         log_parity_error();
       end else begin
       // Initialization Sequence Checking
       if (init_state != INIT_DONE) begin
@@ -712,6 +731,7 @@ module hbm4_model (
             derr_out <= 1;
             derr_timer <= 4;
             inject_ecc_error <= 0;
+            log_ecc_error(dword_pc0.BG, dword_pc0.BA, active_row[bank_idx], 4'hA);
         end
         
         // Protocol Check
@@ -952,6 +972,7 @@ module hbm4_model (
             derr_out <= 1;
             derr_timer <= 4;
             inject_ecc_error <= 0;
+            log_ecc_error(dword_pc1.BG, dword_pc1.BA, active_row[bank_idx], 4'hA);
         end
         
         // Protocol Check
