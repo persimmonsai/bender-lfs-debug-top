@@ -60,6 +60,9 @@ module hbm4_model (
   time last_rfmpb_time [NUM_BANKS];
   int  rfm_counter [NUM_BANKS]; // RAA (Row Activation Alarm) counter per bank
 
+  // Directed Refresh Management (DRFM) Trackers
+  time last_drfm_time [NUM_BANKS];
+
   // DBI Trackers
   logic [35:0] last_read_state_pc0 = '0; // {DBI[3:0], DQ[31:0]}
   logic [35:0] last_read_state_pc1 = '0;
@@ -360,6 +363,22 @@ module hbm4_model (
         if (power_state != PWR_ACTIVE) $error("[%0t] HBM4_PROTOCOL_ERROR: Command issued while in low-power state!", $time);
         if (($time - last_sr_exit_time) < tXS && last_sr_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXS violation.", $time);
         if (($time - last_pd_exit_time) < tXP && last_pd_exit_time != 0) $error("[%0t] HBM4_TIMING_ERROR: tXP violation. Expected %0t, got %0t.", $time, tXP, ($time - last_pd_exit_time));
+        
+        // DRFM: Directed Refresh Management (ACT with DRFM bit set)
+        if (aword.R_ADDR[DRFM_BIT]) begin
+          if (bank_state[bank_idx] != BANK_IDLE) begin
+            $error("[%0t] HBM4_PROTOCOL_ERROR: DRFM to active bank %0d!", $time, bank_idx);
+          end
+          if (($time - last_drfm_time[bank_idx]) < tDRFM && last_drfm_time[bank_idx] != 0) begin
+            $error("[%0t] HBM4_TIMING_ERROR: tDRFM violation on bank %0d.", $time, bank_idx);
+          end
+          
+          last_drfm_time[bank_idx] <= $time;
+          rfm_counter[bank_idx] <= 0; // Reset RAA counter
+          last_act_time[bank_idx] <= $time;
+          $display("[%0t] HBM4_MODEL: DRFM Bank %0d, Row %0h (RAA counter reset)", $time, bank_idx, aword.R_ADDR);
+        end else begin
+        // Normal ACTIVATE
         if (bank_state[bank_idx] != BANK_IDLE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: ACTIVATE to already active bank %0d!", $time, bank_idx);
         end
@@ -428,6 +447,7 @@ module hbm4_model (
         last_act_bg <= aword.BG;
         
         $display("[%0t] HBM4_MODEL: ACTIVATE Bank %0d, Row %0h", $time, bank_idx, aword.R_ADDR);
+        end // end normal ACTIVATE (else of DRFM check)
       end
       else if (aword.CMD == CMD_PRE) begin
                 int bank_idx;
@@ -682,6 +702,7 @@ module hbm4_model (
       last_bank_rd_time[i] = 0;
       last_rfmpb_time[i] = 0;
       rfm_counter[i] = 0;
+      last_drfm_time[i] = 0;
     end
   end
 

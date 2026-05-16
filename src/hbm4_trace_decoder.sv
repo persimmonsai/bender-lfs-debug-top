@@ -22,7 +22,7 @@ module hbm4_trace_decoder #(
       // Decode AWORD (Row Commands)
       if (aword.CMD != CMD_NOP) begin
         case (aword.CMD)
-          CMD_ACT: $display("[%10t] TRACE [CH %2d]       AWORD : ACT  | BG=%-2d | BA=%-2d | ROW=0x%04h", $time, CHANNEL_ID, aword.BG, aword.BA, 15'(vif.AWORD));
+          CMD_ACT: $display("[%10t] TRACE [CH %2d]       AWORD : %s | BG=%-2d | BA=%-2d | ROW=0x%04h", $time, CHANNEL_ID, aword.R_ADDR[DRFM_BIT] ? "DRFM" : "ACT ", aword.BG, aword.BA, 15'(vif.AWORD));
           CMD_PRE: $display("[%10t] TRACE [CH %2d]       AWORD : PRE  | BG=%-2d | BA=%-2d |", $time, CHANNEL_ID, aword.BG, aword.BA);
           CMD_PDE: $display("[%10t] TRACE [CH %2d]       AWORD : PDE  |", $time, CHANNEL_ID);
           CMD_MRS: $display("[%10t] TRACE [CH %2d]       AWORD : MRS  |", $time, CHANNEL_ID);

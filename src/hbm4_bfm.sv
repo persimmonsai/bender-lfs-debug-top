@@ -653,6 +653,27 @@ endfunction
     end
   endtask
 
+  // Task to issue Directed Refresh Management (DRFM) — ACT with DRFM bit set
+  task drfm(input logic [1:0] bg, input logic [3:0] ba, input logic [14:0] row);
+    begin
+      aword_t aword;
+      logic [4:0] r_addr;
+      r_addr = row[4:0];
+      r_addr[DRFM_BIT] = 1'b1; // Set DRFM indicator
+      aword.CMD = CMD_ACT;
+      aword.BG = bg;
+      aword.BA = ba;
+      aword.R_ADDR = r_addr;
+      aword.R = calc_parity_aword(aword) ^ inject_aerr; inject_aerr = 0;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= aword;
+      
+      @(posedge vif.CK_t);
+      vif.AWORD <= '0; // NOP
+    end
+  endtask
+
    // Task to issue ZQ Calibration command
   // zq_long: 0 = ZQCS (short), 1 = ZQCL (long)
   task zq_calibrate(input logic zq_long);

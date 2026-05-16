@@ -102,6 +102,10 @@ package hbm4_pkg;
   localparam time tRFM = 260ns;    // RFM cycle time (same as tRFC for all-bank)
   localparam time tRFMpb = 130ns;  // Per-bank RFM cycle time
 
+  // Directed Refresh Management (DRFM)
+  localparam int  DRFM_BIT = 4;    // R_ADDR bit that signals DRFM on ACT command
+  localparam time tDRFM = 260ns;   // DRFM cycle time
+
   // AC DBI Toggle Calculation Function
   function automatic logic [8:0] compute_dbi_byte(input logic [7:0] data, input logic [7:0] prev_data, input logic prev_dbi);
     int toggle_count = $countones(data ^ prev_data);

@@ -758,6 +758,32 @@ module tb_top;
     
     $display("[%0t] TEST: test_rfm - PASSED", $time);
   endtask
+
+  // Test: Directed Refresh Management (DRFM)
+  task test_drfm();
+    $display("\n[%0t] TEST: test_drfm - Starting", $time);
+    
+    // Issue several activates to increment RAA counter on bank 3
+    for (int i = 0; i < 5; i++) begin
+      bfm[0].activate(2'b01, 4'b0011, 15'(i));
+      repeat(20) @(posedge clk);
+      bfm[0].precharge(2'b01, 4'b0011);
+      repeat(20) @(posedge clk);
+    end
+    
+    // Issue DRFM — directed refresh management on bank 3
+    // This should reset RAA counter without opening the bank for data access
+    bfm[0].drfm(2'b01, 4'b0011, 15'h0010);
+    repeat(300) @(posedge clk); // Wait tDRFM
+    
+    // Normal activate should succeed (bank was not opened by DRFM)
+    bfm[0].activate(2'b01, 4'b0011, 15'h0100);
+    repeat(20) @(posedge clk);
+    bfm[0].precharge(2'b01, 4'b0011);
+    repeat(20) @(posedge clk);
+    
+    $display("[%0t] TEST: test_drfm - PASSED", $time);
+  endtask
     $display("[%0t] TB_TOP: FATAL ERROR - Simulation Timeout!", $time);
     $finish(2);
   end
@@ -809,6 +835,7 @@ module tb_top;
       else if (test_name == "test_cattrip_temperature") test_cattrip_temperature();
       else if (test_name == "test_auto_precharge") test_auto_precharge();
       else if (test_name == "test_rfm") test_rfm();
+      else if (test_name == "test_drfm") test_drfm();
       else begin
         $display("UNKNOWN TEST: %s", test_name);
       end
@@ -832,6 +859,7 @@ module tb_top;
       test_cattrip_temperature();
       test_auto_precharge();
       test_rfm();
+      test_drfm();
     end
     
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);
