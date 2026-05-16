@@ -27,8 +27,8 @@ module hbm4_bfm (
 
   // DQ and DBI Drivers
   logic [31:0] dq_pc0_drive = 'z;
-  logic [7:0] mode_reg_pc0 [0:15];
-  logic [7:0] mode_reg_pc1 [0:15];
+  logic [7:0] mode_reg_pc0 [0:19];
+  logic [7:0] mode_reg_pc1 [0:19];
   logic dq_pc0_en = 0;
   logic [3:0] dbi_pc0_drive = 'z;
   
@@ -732,6 +732,7 @@ endfunction
       
       if (mr_idx == 5'h1 && data[4:0] != 0) wl_pc0 = data[4:0];
       if (mr_idx == 5'h2 && data != 0) rl_pc0 = data;
+      if (mr_idx < 20) mode_reg_pc0[mr_idx] = data;
       
       @(posedge vif.CK_t);
       vif.DWORD_PC0 <= dword;
@@ -753,6 +754,7 @@ endfunction
       
       if (mr_idx == 5'h1 && data[4:0] != 0) wl_pc1 = data[4:0];
       if (mr_idx == 5'h2 && data != 0) rl_pc1 = data;
+      if (mr_idx < 20) mode_reg_pc1[mr_idx] = data;
       
       @(posedge vif.CK_t);
       vif.DWORD_PC1 <= dword;
