@@ -20,7 +20,7 @@ module hbm4_trace_decoder #(
       dword_pc1 = dword_t'(vif.DWORD_PC1);
       
       // Decode AWORD (Row Commands)
-      if (aword.CMD != CMD_NOP) begin
+      if (aword.CMD != CMD_RNOP) begin
         case (aword.CMD)
           CMD_ACT: $display("[%10t] TRACE [CH %2d]       AWORD : %s | BG=%-2d | BA=%-2d | ROW=0x%04h", $time, CHANNEL_ID, aword.R_ADDR[DRFM_BIT] ? "DRFM" : "ACT ", aword.BG, aword.BA, 15'(vif.AWORD));
           CMD_PRE: $display("[%10t] TRACE [CH %2d]       AWORD : PRE  | BG=%-2d | BA=%-2d |", $time, CHANNEL_ID, aword.BG, aword.BA);
@@ -35,7 +35,7 @@ module hbm4_trace_decoder #(
       end
       
       // Decode DWORD_PC0 (Column Commands)
-      if (dword_pc0.CMD != CMD_NOP) begin
+      if (dword_pc0.CMD != CMD_CNOP) begin
         case (dword_pc0.CMD)
           CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
           CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
@@ -45,7 +45,7 @@ module hbm4_trace_decoder #(
       end
 
       // Decode DWORD_PC1 (Column Commands)
-      if (dword_pc1.CMD != CMD_NOP) begin
+      if (dword_pc1.CMD != CMD_CNOP) begin
         case (dword_pc1.CMD)
           CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
           CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);

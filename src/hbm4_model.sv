@@ -356,7 +356,7 @@ module hbm4_model (
       // Initialization Sequence Checking
       if (init_state != INIT_DONE) begin
         if (init_state == INIT_WAIT_PDE) begin
-          if (aword.CMD == CMD_PDE && dword_pc0.CMD == CMD_NOP && dword_pc1.CMD == CMD_NOP) begin
+          if (aword.CMD == CMD_PDE && dword_pc0.CMD == CMD_CNOP && dword_pc1.CMD == CMD_CNOP) begin
             init_state = INIT_WAIT_MRS;
             pde_entry_time = $time;
             $display("[%0t] HBM4_MODEL: Entered PDE state during initialization.", $time);
@@ -364,7 +364,7 @@ module hbm4_model (
             $error("[%0t] HBM4_PROTOCOL_ERROR: Command must be PDE and DWORD NOP upon first CK toggle after reset! Got AWORD=%0h", $time, aword.CMD);
           end
         end else if (init_state == INIT_WAIT_MRS) begin
-          if (aword.CMD == CMD_NOP && dword_pc0.CMD == CMD_NOP && dword_pc1.CMD == CMD_NOP) begin
+          if (aword.CMD == CMD_RNOP && dword_pc0.CMD == CMD_CNOP && dword_pc1.CMD == CMD_CNOP) begin
             if (pde_exit_time == 0) begin
               pde_exit_time = $time;
               $display("[%0t] HBM4_MODEL: Exited PDE state. Waiting tINIT5 (200ns) before first MRS...", $time);

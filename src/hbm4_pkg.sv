@@ -37,6 +37,10 @@ package hbm4_pkg;
     CMD_RFM   = 4'b1111  // Refresh Management (BA[3]: 0=RFMab, 1=RFMpb)
   } hbm4_cmd_e;
 
+  // RNOP / CNOP aliases (JESD270-4 §6.3): same encoding, different bus context
+  localparam logic [3:0] CMD_RNOP = 4'b0000; // Row NOP (AWORD bus)
+  localparam logic [3:0] CMD_CNOP = 4'b0000; // Column NOP (DWORD bus)
+
   // AWORD (Row Command Bus) Structure
   typedef struct packed {
     logic       R;      // Reserved / Parity

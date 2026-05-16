@@ -137,7 +137,7 @@ endfunction
       vif.AWORD <= aword;
       
       dword = '0;
-      dword.CMD = CMD_NOP;
+      dword.CMD = CMD_CNOP;
       dword.C = calc_parity_dword(dword);
       vif.DWORD_PC0 <= dword;
       vif.DWORD_PC1 <= dword;
@@ -156,7 +156,7 @@ endfunction
       repeat(10) @(posedge vif.CK_t);
       
       // Exit PDE (Drive R[3:0] HIGH -> NOP)
-      aword.CMD = CMD_NOP;
+      aword.CMD = CMD_RNOP;
       aword.R = calc_parity_aword(aword);
       vif.AWORD <= aword;
       $display("[%0t] HBM4_BFM: Exited PDE. Waiting tINIT5 (200ns)", $time);
