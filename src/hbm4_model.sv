@@ -79,6 +79,10 @@ module hbm4_model (
   logic [7:0] mode_reg_pc1 [20];
   logic [19:0] mr_programmed_pc1 = 0;
 
+  // Loopback Mode (MR7 OP[0]) — last write data captured for readback
+  logic [255:0] loopback_data_pc0 = '0;
+  logic [255:0] loopback_data_pc1 = '0;
+
   // Power State
   typedef enum logic [1:0] {
     PWR_ACTIVE,
@@ -836,6 +840,8 @@ module hbm4_model (
                 end
               end
               mem_array_pc0[addr] = write_data;
+              // Loopback mode: capture write data for immediate readback
+              if (mode_reg_pc0[7][0]) loopback_data_pc0 = write_data;
               
               // Auto-Precharge: close bank after write recovery (tWR)
               if (c_addr[AP_BIT]) begin
@@ -861,6 +867,10 @@ module hbm4_model (
             derr_timer <= 4;
             inject_ecc_error <= 0;
             log_ecc_error(dword_pc0.BG, dword_pc0.BA, active_row[bank_idx], 4'hA);
+            // MR9 OP[0]: ECC metadata signaling enable
+            if (mode_reg_pc0[9][0]) begin
+              $display("[%0t] HBM4_MODEL: ECC metadata enabled - syndrome=0xA, bank=%0d", $time, bank_idx);
+            end
         end
         
         // Protocol Check
@@ -928,7 +938,11 @@ module hbm4_model (
               vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
-              read_data_256 = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
+              // Loopback mode: return last written data instead of memory contents
+              if (mode_reg_pc0[7][0])
+                read_data_256 = loopback_data_pc0;
+              else
+                read_data_256 = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
               
               for (int beat = 0; beat < 4; beat++) begin
                 ui0_data = read_data_256[(beat*2)*32 +: 32];
@@ -1123,6 +1137,7 @@ module hbm4_model (
                 end
               end
               mem_array_pc1[addr] = write_data;
+              if (mode_reg_pc1[7][0]) loopback_data_pc1 = write_data;
               
               // Auto-Precharge: close bank after write recovery (tWR)
               if (c_addr[AP_BIT]) begin
@@ -1147,6 +1162,9 @@ module hbm4_model (
             derr_timer <= 4;
             inject_ecc_error <= 0;
             log_ecc_error(dword_pc1.BG, dword_pc1.BA, active_row[bank_idx], 4'hA);
+            if (mode_reg_pc1[9][0]) begin
+              $display("[%0t] HBM4_MODEL: ECC metadata enabled - syndrome=0xA, bank=%0d", $time, bank_idx);
+            end
         end
         
         // Protocol Check
@@ -1214,7 +1232,10 @@ module hbm4_model (
               vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
               
               rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
-              read_data_256 = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
+              if (mode_reg_pc1[7][0])
+                read_data_256 = loopback_data_pc1;
+              else
+                read_data_256 = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
               
               for (int beat = 0; beat < 4; beat++) begin
                 ui0_data = read_data_256[(beat*2)*32 +: 32];
