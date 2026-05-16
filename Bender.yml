@@ -1,0 +1,19 @@
+package:
+  name: hbm4-model
+  description: "HBM4 JESD270-4 behavioral simulation model with BFM and IEEE 1500 support"
+  authors:
+    - "Eugene Feinberg <uge@persimmons.ai>"
+
+sources:
+  files:
+    - src/hbm4_pkg.sv
+    - src/hbm4_if.sv
+    - src/hbm4_model.sv
+    - src/hbm4_stack.sv
+    - src/hbm4_bfm.sv
+    - src/hbm4_trace_decoder.sv
+
+  targets:
+    test:
+      files:
+        - tb/tb_top.sv
