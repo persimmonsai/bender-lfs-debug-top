@@ -44,6 +44,7 @@ module hbm4_model (
   // Refresh and MRS Trackers
   time last_ref_time = 0;
   time last_refpb_time [NUM_BANKS];
+  time last_refpb_any_time = 0; // Last REFpb to any bank (for tRREFD)
   time last_mrs_time = 0;
 
   // Per-Bank Refresh Rolling Window
@@ -540,8 +541,13 @@ module hbm4_model (
         if (($time - last_ref_time) < tRFC && last_ref_time != 0) begin
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on REFpb.", $time);
         end
+        // tRREFD: minimum delay between consecutive REFpb commands
+        if (($time - last_refpb_any_time) < tRREFD && last_refpb_any_time != 0) begin
+           $error("[%0t] HBM4_TIMING_ERROR: tRREFD violation on REFpb bank %0d. Expected %0t, got %0t", $time, bank_idx, tRREFD, ($time - last_refpb_any_time));
+        end
 
         last_refpb_time[bank_idx] <= $time;
+        last_refpb_any_time <= $time;
         
         // Rolling window tracking
         if (refpb_window_start[bank_idx] == 0 || ($time - refpb_window_start[bank_idx]) >= tREFW) begin
