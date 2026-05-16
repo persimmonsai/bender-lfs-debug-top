@@ -94,6 +94,9 @@ module hbm4_model (
   time last_zq_time = 0;
   logic zq_cal_pending = 0;
 
+  // Global command tracker for tCPDED (any command -> PDE delay)
+  time last_any_cmd_time = 0;
+
   // Refresh Management (RFM) Trackers
   time last_rfm_time = 0;
   time last_rfmpb_time [NUM_BANKS];
@@ -405,6 +408,7 @@ module hbm4_model (
         mr_programmed_pc0[mr_idx] <= 1;
         $display("[%0t] HBM4_MODEL: Programmed PC0 MR%0d", $time, mr_idx);
         last_mrs_time <= $time;
+        last_any_cmd_time <= $time;
       end
       if (dword_pc1.CMD == CMD_MRS) begin
         automatic int mr_idx = {dword_pc1.C, dword_pc1.BA};
@@ -415,6 +419,7 @@ module hbm4_model (
         mode_reg_pc1[mr_idx] <= {dword_pc1.BG, dword_pc1.C_ADDR};
         mr_programmed_pc1[mr_idx] <= 1;
         last_mrs_time <= $time;
+        last_any_cmd_time <= $time;
       end
 
       if (init_state == INIT_WAIT_MRS && mr_programmed_pc0 == 20'hFFFFF && mr_programmed_pc1 == 20'hFFFFF) begin
@@ -457,6 +462,7 @@ module hbm4_model (
           last_drfm_time[bank_idx] <= $time;
           rfm_counter[bank_idx] <= 0; // Reset RAA counter
           last_act_time[bank_idx] <= $time;
+          last_any_cmd_time <= $time;
           $display("[%0t] HBM4_MODEL: DRFM Bank %0d, Row %0h (RAA counter reset)", $time, bank_idx, aword.R_ADDR);
         end else begin
         // Normal ACTIVATE
@@ -515,6 +521,7 @@ module hbm4_model (
         bank_state[bank_idx] <= BANK_ACTIVE;
         active_row[bank_idx] <= remap_row(aword.BG, aword.BA, aword.R_ADDR);
         last_act_time[bank_idx] <= $time;
+        last_any_cmd_time <= $time;
         rfm_counter[bank_idx] <= rfm_counter[bank_idx] + 1; // RAA counter increment
         
         // RFM threshold warning: MR8 OP[5:4] sets RAA multiplier (0=32, 1=48, 2=64, 3=80)
@@ -577,6 +584,7 @@ module hbm4_model (
         // Execute Command
         bank_state[bank_idx] <= BANK_IDLE;
         last_pre_time[bank_idx] <= $time;
+        last_any_cmd_time <= $time;
         $display("[%0t] HBM4_MODEL: PRECHARGE Bank %0d", $time, bank_idx);
       end
       else if (aword.CMD == CMD_PREA) begin
@@ -640,6 +648,7 @@ module hbm4_model (
 
         last_refpb_time[bank_idx] <= $time;
         last_refpb_any_time <= $time;
+        last_any_cmd_time <= $time;
         
         // Rolling window tracking
         if (refpb_window_start[bank_idx] == 0 || ($time - refpb_window_start[bank_idx]) >= tREFW) begin
@@ -665,6 +674,7 @@ module hbm4_model (
            $error("[%0t] HBM4_TIMING_ERROR: tRFC violation on REF.", $time);
         end
         last_ref_time <= $time;
+        last_any_cmd_time <= $time;
         $display("[%0t] HBM4_MODEL: ALL-BANK REFRESH", $time);
       end
       else if (aword.CMD == CMD_PDE) begin
@@ -672,9 +682,9 @@ module hbm4_model (
           $error("[%0t] HBM4_PROTOCOL_ERROR: PDE issued while not in ACTIVE state (current: %s)!", $time, power_state.name());
         end
         // tCPDED: minimum delay from last command to PDE
-        if (last_global_act_time != 0 && ($time - last_global_act_time) < tCPDED) begin
+        if (last_any_cmd_time != 0 && ($time - last_any_cmd_time) < tCPDED) begin
           timing_violation_count++;
-          $error("[%0t] HBM4_TIMING_ERROR: tCPDED violation on PDE. Last command was %0t ago, minimum is %0t.", $time, ($time - last_global_act_time), tCPDED);
+          $error("[%0t] HBM4_TIMING_ERROR: tCPDED violation on PDE. Last command was %0t ago, minimum is %0t.", $time, ($time - last_any_cmd_time), tCPDED);
         end
         // tWRPDE: write recovery must complete before PDE
         if (last_wr_time_pc0 != 0 && ($time - last_wr_time_pc0) < tWRPDE) begin
@@ -754,6 +764,7 @@ module hbm4_model (
           $display("[%0t] HBM4_MODEL: ZQ CALIBRATION SHORT (ZQCS)", $time);
         end
         last_zq_time <= $time;
+        last_any_cmd_time <= $time;
         zq_cal_pending <= 1;
       end
       else if (aword.CMD == CMD_RFM) begin
@@ -775,6 +786,7 @@ module hbm4_model (
           end
           
           last_rfmpb_time[bank_idx] <= $time;
+          last_any_cmd_time <= $time;
           rfm_counter[bank_idx] <= 0; // Reset RAA counter
           $display("[%0t] HBM4_MODEL: RFMpb Bank %0d (RAA counter reset)", $time, bank_idx);
         end else begin
@@ -790,6 +802,7 @@ module hbm4_model (
           end
           
           last_rfm_time <= $time;
+          last_any_cmd_time <= $time;
           for (int i = 0; i < NUM_BANKS; i++) rfm_counter[i] <= 0;
           $display("[%0t] HBM4_MODEL: RFMab (all RAA counters reset)", $time);
         end
@@ -890,6 +903,7 @@ module hbm4_model (
         end
         
         last_wr_time_pc0 <= $time;
+        last_any_cmd_time <= $time;
         last_wr_bg_pc0 <= dword_pc0.BG;
         last_bank_wr_time[bank_idx] <= $time;
         
@@ -1025,6 +1039,7 @@ module hbm4_model (
         end
         
         last_rd_time_pc0 <= $time;
+        last_any_cmd_time <= $time;
         last_rd_bg_pc0 <= dword_pc0.BG;
         last_bank_rd_time[bank_idx] <= $time;
         
@@ -1127,6 +1142,7 @@ module hbm4_model (
           
           $display("[%0t] HBM4_MODEL: MRR PC0 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
           last_rd_time_pc0 <= $time;
+          last_any_cmd_time <= $time;
           
           fork
             begin
@@ -1227,6 +1243,7 @@ module hbm4_model (
         end
         
         last_wr_time_pc1 <= $time;
+        last_any_cmd_time <= $time;
         last_wr_bg_pc1 <= dword_pc1.BG;
         last_bank_wr_time[bank_idx] <= $time;
         
@@ -1355,6 +1372,7 @@ module hbm4_model (
         end
         
         last_rd_time_pc1 <= $time;
+        last_any_cmd_time <= $time;
         last_rd_bg_pc1 <= dword_pc1.BG;
         last_bank_rd_time[bank_idx] <= $time;
         
@@ -1455,6 +1473,7 @@ module hbm4_model (
           
           $display("[%0t] HBM4_MODEL: MRR PC1 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
           last_rd_time_pc1 <= $time;
+          last_any_cmd_time <= $time;
           
           fork
             begin
