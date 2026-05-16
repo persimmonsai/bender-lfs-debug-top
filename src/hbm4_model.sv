@@ -659,9 +659,15 @@ module hbm4_model (
           fork
             begin
               automatic logic [255:0] write_data;
+              automatic logic [31:0]  write_mask; // Per-byte mask for DM mode
               // WDBI is controlled by MR0 OP[1]
               automatic logic wdbi_en = (mode_reg_pc0[0][1] == 1'b1);
+              // Data Mask mode controlled by MR0 OP[3] (overrides DBI on writes)
+              automatic logic dm_en = (mode_reg_pc0[0][3] == 1'b1);
               repeat(dynamic_wl) @(posedge vif.CK_t);
+              
+              write_data = mem_array_pc0.exists(addr) ? mem_array_pc0[addr] : 256'h0;
+              write_mask = '0;
               
               for (int beat = 0; beat < 4; beat++) begin
                 automatic logic [31:0] dq_sampled;
@@ -671,14 +677,22 @@ module hbm4_model (
                 dq_sampled = vif.DQ_PC0;
                 dbi_sampled = vif.DBI_PC0;
                 for (int b = 0; b < 4; b++) begin
-                  write_data[(beat*2)*32 + b*8 +: 8] = (wdbi_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  if (dm_en && dbi_sampled[b]) begin
+                    // DM mode: mask this byte (keep existing data)
+                  end else begin
+                    write_data[(beat*2)*32 + b*8 +: 8] = (wdbi_en && !dm_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  end
                 end
                 
                 @(negedge vif.WDQS_t_pc0);
                 dq_sampled = vif.DQ_PC0;
                 dbi_sampled = vif.DBI_PC0;
                 for (int b = 0; b < 4; b++) begin
-                  write_data[(beat*2+1)*32 + b*8 +: 8] = (wdbi_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  if (dm_en && dbi_sampled[b]) begin
+                    // DM mode: mask this byte (keep existing data)
+                  end else begin
+                    write_data[(beat*2+1)*32 + b*8 +: 8] = (wdbi_en && !dm_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  end
                 end
               end
               mem_array_pc0[addr] = write_data;
@@ -892,7 +906,10 @@ module hbm4_model (
             begin
               automatic logic [255:0] write_data;
               automatic logic wdbi_en = (mode_reg_pc1[0][1] == 1'b1);
+              automatic logic dm_en = (mode_reg_pc1[0][3] == 1'b1);
               repeat(dynamic_wl) @(posedge vif.CK_t);
+              
+              write_data = mem_array_pc1.exists(addr) ? mem_array_pc1[addr] : 256'h0;
               
               for (int beat = 0; beat < 4; beat++) begin
                 automatic logic [31:0] dq_sampled;
@@ -902,14 +919,22 @@ module hbm4_model (
                 dq_sampled = vif.DQ_PC1;
                 dbi_sampled = vif.DBI_PC1;
                 for (int b = 0; b < 4; b++) begin
-                  write_data[(beat*2)*32 + b*8 +: 8] = (wdbi_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  if (dm_en && dbi_sampled[b]) begin
+                    // DM mode: mask this byte
+                  end else begin
+                    write_data[(beat*2)*32 + b*8 +: 8] = (wdbi_en && !dm_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  end
                 end
                 
                 @(negedge vif.WDQS_t_pc1);
                 dq_sampled = vif.DQ_PC1;
                 dbi_sampled = vif.DBI_PC1;
                 for (int b = 0; b < 4; b++) begin
-                  write_data[(beat*2+1)*32 + b*8 +: 8] = (wdbi_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  if (dm_en && dbi_sampled[b]) begin
+                    // DM mode: mask this byte
+                  end else begin
+                    write_data[(beat*2+1)*32 + b*8 +: 8] = (wdbi_en && !dm_en && dbi_sampled[b]) ? ~dq_sampled[b*8 +: 8] : dq_sampled[b*8 +: 8];
+                  end
                 end
               end
               mem_array_pc1[addr] = write_data;
