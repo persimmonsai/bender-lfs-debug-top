@@ -140,7 +140,39 @@ module tb_top;
     end
   endtask
 
-    task test_parity_error();
+    task test_derr_ecc();
+    begin
+      $display("\n[%0t] TB_TOP: ========================================", $time);
+      $display("[%0t] TB_TOP: TEST: Data ECC Error (DERR)", $time);
+      $display("[%0t] TB_TOP: ========================================\n", $time);
+      
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+      
+      u_hbm4_bfm[0].activate(2'b00, 4'b0000, 15'h0100);
+      #(tRCD);
+      
+      // Inject ECC Error directly into the model's backdoor
+      $display("[%0t] TB_TOP: Injecting ECC error backdoor for next read...", $time);
+      u_hbm4_stack.ch[0].u_hbm4_model.inject_ecc_error = 1;
+      
+      $display("[%0t] TB_TOP: Issuing READ to trigger ECC error", $time);
+      u_hbm4_bfm[0].read_pc0(2'b00, 4'b0000, 6'h00);
+      
+      #(4ns);
+      if (channel_if[0].ctrl.DERR === 1'b1) begin
+         $display("[%0t] TB_TOP: PASS - DERR successfully asserted", $time);
+      end else begin
+         $error("[%0t] TB_TOP: FAIL - DERR did not assert", $time);
+      end
+      
+      #(tCL + 10ns);
+      u_hbm4_bfm[0].precharge_all();
+      #(tRP);
+    end
+  endtask
+
+  task test_parity_error();
     begin
       $display("\n[%0t] TB_TOP: ========================================", $time);
       $display("[%0t] TB_TOP: TEST: Command Parity Error (AERR)", $time);
@@ -634,6 +666,7 @@ module tb_top;
       else if (test_name == "test_mrr") test_mrr();
       else if (test_name == "test_basic_rw_bursts") test_basic_rw_bursts();
       else if (test_name == "test_parity_error") test_parity_error();
+      else if (test_name == "test_derr_ecc") test_derr_ecc();
       else if (test_name == "test_timing_ccd") test_timing_ccd();
       else if (test_name == "test_timing_rtp") test_timing_rtp();
       else if (test_name == "test_timing_wtr") test_timing_wtr();
@@ -653,6 +686,7 @@ module tb_top;
       test_mrr();
       test_basic_rw_bursts();
       test_parity_error();
+      test_derr_ecc();
       test_low_power_states();
       test_prea_refpb();
       test_timing_faw_rrd();

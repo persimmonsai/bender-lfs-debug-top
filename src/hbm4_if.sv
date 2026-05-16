@@ -14,6 +14,7 @@ interface hbm4_if (
   // Global signals (per channel)
   logic CKE;
   logic AERR; // Address/Command Parity Error
+  logic DERR; // Data Error / ECC Error
 
   // AWORD (Row Command/Address)
   logic [15:0] AWORD;
@@ -59,6 +60,7 @@ interface hbm4_if (
     output RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
     output AERR,
+    output DERR,
     input  WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
     output WSO
   );
@@ -73,6 +75,7 @@ interface hbm4_if (
     input  RDQS_t_pc0, RDQS_c_pc0, RDQS_t_pc1, RDQS_c_pc1,
     inout  DQ_PC0, DQ_PC1, DBI_PC0, DBI_PC1,
     input  AERR,
+    input  DERR,
     output WRCK, WSI, ShiftWR, UpdateWR, CaptureWR, SelectVR,
     input  WSO
   );

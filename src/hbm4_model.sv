@@ -91,6 +91,13 @@ module hbm4_model (
   int aerr_timer = 0;
   assign vif.AERR = aerr_out;
 
+  logic derr_out = 0;
+  int derr_timer = 0;
+  assign vif.DERR = derr_out;
+  
+  // Backdoor to inject an ECC error on the next read
+  logic inject_ecc_error = 0;
+
   function automatic logic check_parity(aword_t a, dword_t d0, dword_t d1);
     logic calc_p_a;
     logic calc_p_d0;
@@ -204,6 +211,10 @@ module hbm4_model (
       if (aerr_timer > 0) begin
         aerr_timer <= aerr_timer - 1;
         if (aerr_timer == 1) aerr_out <= 0;
+      end
+      if (derr_timer > 0) begin
+        derr_timer <= derr_timer - 1;
+        if (derr_timer == 1) derr_out <= 0;
       end
 
       aword = vif.AWORD;
@@ -576,6 +587,13 @@ module hbm4_model (
                 int bank_idx;
         bank_idx = {dword_pc0.BG, dword_pc0.BA};
         
+        if (inject_ecc_error) begin
+            $display("[%0t] HBM4_MODEL: INTERNAL ECC ERROR DETECTED on PC0. Asserting DERR.", $time);
+            derr_out <= 1;
+            derr_timer <= 4;
+            inject_ecc_error <= 0;
+        end
+        
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: READ PC0 to idle bank %0d!", $time, bank_idx);
@@ -739,6 +757,13 @@ module hbm4_model (
       else if (dword_pc1.CMD == CMD_RD) begin
                 int bank_idx;
         bank_idx = {dword_pc1.BG, dword_pc1.BA};
+        
+        if (inject_ecc_error) begin
+            $display("[%0t] HBM4_MODEL: INTERNAL ECC ERROR DETECTED on PC1. Asserting DERR.", $time);
+            derr_out <= 1;
+            derr_timer <= 4;
+            inject_ecc_error <= 0;
+        end
         
         // Protocol Check
         if (bank_state[bank_idx] != BANK_ACTIVE) begin
