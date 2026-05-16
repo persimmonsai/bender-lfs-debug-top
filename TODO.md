@@ -1,6 +1,23 @@
-# HBM4 Model - Remaining Implementation Gaps
+# HBM4 Model - Spec Compliance Audit
+
+**Last updated:** 2026-05-15  
+**Status:** 28/32 items complete (87.5%)
 
 This document tracks the known gaps between the current HBM4 simulation model and the official JESD270-4 specification.
+
+## Remaining Open Items (4)
+
+| Item | Priority | Reason Not Implemented |
+|------|----------|----------------------|
+| tCKPDE / tCKPDX | Medium | Analog clock-valid window; not observable in behavioral model |
+| MR8 OP[7:6] BRC | Medium | Bounded Refresh Configuration; complex scheduler, low ROI |
+| MR10 DCA / MR6 DCM | Medium | Analog duty-cycle features; not behaviorally relevant |
+| Clock freq change (§6.1) | Medium | Protocol-level PLL sequence; no functional impact on model |
+| CNOP / RNOP | Low | Model already handles 4'b0000 as NOP; cosmetic distinction |
+| Rx Offset Cal training | Low | Analog PHY training; not relevant for behavioral model |
+| test_concurrent_traffic | Low | Test exists but missing from Makefile targets |
+
+---
 
 ## 1. Reliability, Availability, and Serviceability (RAS)
 - [x] Command/Address Parity Checking (`AERR` pin)
