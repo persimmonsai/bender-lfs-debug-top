@@ -1,11 +1,11 @@
 # HBM4 Model - Spec Compliance Audit
 
-**Last updated:** 2026-05-15  
-**Status:** 28/32 items complete (87.5%)
+**Last updated:** 2026-05-16  
+**Status:** 29/32 items complete (90.6%)
 
 This document tracks the known gaps between the current HBM4 simulation model and the official JESD270-4 specification.
 
-## Remaining Open Items (4)
+## Remaining Open Items (6)
 
 | Item | Priority | Reason Not Implemented |
 |------|----------|----------------------|
@@ -15,7 +15,6 @@ This document tracks the known gaps between the current HBM4 simulation model an
 | Clock freq change (§6.1) | Medium | Protocol-level PLL sequence; no functional impact on model |
 | CNOP / RNOP | Low | Model already handles 4'b0000 as NOP; cosmetic distinction |
 | Rx Offset Cal training | Low | Analog PHY training; not relevant for behavioral model |
-| test_concurrent_traffic | Low | Test exists but missing from Makefile targets |
 
 ---
 
@@ -43,6 +42,16 @@ This document tracks the known gaps between the current HBM4 simulation model an
 ## 6. Previously Undocumented Gaps (Now Fixed)
 - [x] MRR (Mode Register Read) readback path in model
 - [x] Low-power state machine (PDE/PDX/SRE/SRX command handlers with proper state transitions)
+
+## 7. Signal Naming & Interface (JESD271 Bump Map Alignment)
+- [x] IEEE 1500 control signals renamed to match spec (`SHIFTWR`, `UPDATEWR`, `CAPTUREWR`, `SELECTWIR`)
+- [x] Added missing `WRST_n` (IEEE 1500 test reset) to interface, model, and BFM
+- [x] Data strobe pseudo-channel suffixes normalized to uppercase (`_PC0`, `_PC1`)
+
+## 8. Bug Fixes
+- [x] Missing `end` in PC1 read fork block (`hbm4_model.sv`) — caused cascading compile errors
+- [x] `program_remap` task WRCK self-drive — was waiting on undriven clock, causing simulation hang
+- [x] `tb_top.sv` identifier fixes — `clk` → `CK_t`, `bfm[]` → `u_hbm4_bfm[]`
 
 ---
 
@@ -81,4 +90,4 @@ This document tracks the known gaps between the current HBM4 simulation model an
 - [ ] **CNOP / RNOP** — Spec defines explicit no-op command encodings; model treats 4'b0000 as generic NOP.
 - [ ] **Rx Offset Calibration training** — Analog-level; less relevant for behavioral model.
 - [x] **Lane repair via IEEE 1500** — Full remap register (WIR=0x02) with 37-bit shift path and 16-entry redundancy table.
-- [ ] **`test_concurrent_traffic`** — Exists in code but not listed in Makefile test targets.
+- [x] **`test_concurrent_traffic`** — Implemented in tb_top.sv and listed in Makefile targets. Runs in regression.
