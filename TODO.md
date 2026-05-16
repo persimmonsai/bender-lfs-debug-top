@@ -57,11 +57,11 @@ This document tracks the known gaps between the current HBM4 simulation model an
 ### 🟡 Medium Priority — Missing Protocol / Data Path
 - [x] **PC1 timing checks** — Added tRCD, tRFC, tMOD, tCCD_L/S, tWTR_L/S, tRTW checks to PC1 WR/RD. **Bug fixed.**
 - [ ] **Clock frequency change sequence** (§6.1). Protocol-level, not yet implemented.
-- [ ] **On-die ECC engine** — Only backdoor DERR injection. Full encode/decode/correct not modeled.
-- [ ] **Interconnect redundancy remapping** — Address remapping tables not modeled.
+- [x] **On-die ECC engine** — Full SEC-DED encode/decode/correct with check bit storage, SEC silent correction, DED→DERR, scrub-back, and statistics counters.
+- [x] **Interconnect redundancy remapping** — 16-entry remap table programmed via IEEE 1500 WSP (WIR=0x02). ACT applies address translation.
 
 ### 🟢 Low Priority — Cosmetic / Edge Cases
 - [ ] **CNOP / RNOP** — Spec defines explicit no-op command encodings; model treats 4'b0000 as generic NOP.
 - [ ] **Rx Offset Calibration training** — Analog-level; less relevant for behavioral model.
-- [ ] **Lane repair via IEEE 1500** — Only basic WIR/WBR/WBY implemented; no repair/remap flows.
+- [x] **Lane repair via IEEE 1500** — Full remap register (WIR=0x02) with 37-bit shift path and 16-entry redundancy table.
 - [ ] **`test_concurrent_traffic`** — Exists in code but not listed in Makefile test targets.
