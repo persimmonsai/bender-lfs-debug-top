@@ -1,11 +1,11 @@
 # HBM4 Model - Spec Compliance Audit
 
 **Last updated:** 2026-05-16  
-**Status:** 29/32 items complete (90.6%)
+**Status:** 30/32 items complete (93.8%)
 
 This document tracks the known gaps between the current HBM4 simulation model and the official JESD270-4 specification.
 
-## Remaining Open Items (6)
+## Remaining Open Items (5)
 
 | Item | Priority | Reason Not Implemented |
 |------|----------|----------------------|
@@ -13,7 +13,6 @@ This document tracks the known gaps between the current HBM4 simulation model an
 | MR8 OP[7:6] BRC | Medium | Bounded Refresh Configuration; complex scheduler, low ROI |
 | MR10 DCA / MR6 DCM | Medium | Analog duty-cycle features; not behaviorally relevant |
 | Clock freq change (§6.1) | Medium | Protocol-level PLL sequence; no functional impact on model |
-| CNOP / RNOP | Low | Model already handles 4'b0000 as NOP; cosmetic distinction |
 | Rx Offset Cal training | Low | Analog PHY training; not relevant for behavioral model |
 
 ---
@@ -87,7 +86,7 @@ This document tracks the known gaps between the current HBM4 simulation model an
 - [x] **Interconnect redundancy remapping** — 16-entry remap table programmed via IEEE 1500 WSP (WIR=0x02). ACT applies address translation.
 
 ### 🟢 Low Priority — Cosmetic / Edge Cases
-- [ ] **CNOP / RNOP** — Spec defines explicit no-op command encodings; model treats 4'b0000 as generic NOP.
+- [x] **CNOP / RNOP** — Distinct `CMD_RNOP` (Row NOP, AWORD) and `CMD_CNOP` (Column NOP, DWORD) aliases. Used contextually in model, BFM, and trace decoder.
 - [ ] **Rx Offset Calibration training** — Analog-level; less relevant for behavioral model.
 - [x] **Lane repair via IEEE 1500** — Full remap register (WIR=0x02) with 37-bit shift path and 16-entry redundancy table.
 - [x] **`test_concurrent_traffic`** — Implemented in tb_top.sv and listed in Makefile targets. Runs in regression.
