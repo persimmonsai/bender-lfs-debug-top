@@ -32,9 +32,9 @@ This document tracks the known gaps between the current HBM4 simulation model an
 ## Spec Audit Findings (JESD270-4)
 
 ### 🔴 High Priority — Missing Commands
-- [ ] **RDA / WRA** — Read/Write with Auto-Precharge (§6.3.3, Table 34). Column commands that automatically precharge the bank after the burst completes. Not implemented.
-- [ ] **RFMab / RFMpb** — Refresh Management commands (Table 40, §6.3.4). Adaptive refresh management to mitigate row-hammer. No command encoding or handler.
-- [ ] **DRFM** — Directed Refresh Management via ACT variant (Table 33). ACT with DRFM bit not decoded.
+- [x] **RDA / WRA** — Read/Write with Auto-Precharge (§6.3.3, Table 34). Uses C_ADDR[5] (AP_BIT) to signal auto-precharge. Bank auto-closes after tWR (write) or tRTP (read).
+- [x] **RFMab / RFMpb** — Refresh Management commands (Table 40, §6.3.4). CMD_RFM (4'b1111) with BA[3] selecting mode. RAA counter per bank with MR8 OP[5:4] threshold.
+- [x] **DRFM** — Directed Refresh Management via ACT variant (Table 33). R_ADDR[4] (DRFM_BIT) on ACT signals directed refresh. Resets RAA counter without opening bank.
 
 ### 🟡 Medium Priority — Missing Timing Parameters
 - [ ] **tRCDRD / tRCDWR** — Separate ACT-to-Read vs ACT-to-Write delays (§6.3.1). Model uses a single `tRCD` for both.
