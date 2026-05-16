@@ -24,10 +24,14 @@ module hbm4_trace_decoder #(
         case (aword.CMD)
           CMD_ACT: $display("[%10t] TRACE [CH %2d]       AWORD : %s | BG=%-2d | BA=%-2d | ROW=0x%04h", $time, CHANNEL_ID, aword.R_ADDR[DRFM_BIT] ? "DRFM" : "ACT ", aword.BG, aword.BA, 15'(vif.AWORD));
           CMD_PRE: $display("[%10t] TRACE [CH %2d]       AWORD : PRE  | BG=%-2d | BA=%-2d |", $time, CHANNEL_ID, aword.BG, aword.BA);
+          CMD_PREA: $display("[%10t] TRACE [CH %2d]       AWORD : PREA |", $time, CHANNEL_ID);
           CMD_PDE: $display("[%10t] TRACE [CH %2d]       AWORD : PDE  |", $time, CHANNEL_ID);
+          CMD_PDX: $display("[%10t] TRACE [CH %2d]       AWORD : PDX  |", $time, CHANNEL_ID);
           CMD_MRS: $display("[%10t] TRACE [CH %2d]       AWORD : MRS  |", $time, CHANNEL_ID);
           CMD_REF: $display("[%10t] TRACE [CH %2d]       AWORD : REF  |", $time, CHANNEL_ID);
+          CMD_REFpb: $display("[%10t] TRACE [CH %2d]       AWORD : RFpb | BG=%-2d | BA=%-2d", $time, CHANNEL_ID, aword.BG, aword.BA);
           CMD_SRE: $display("[%10t] TRACE [CH %2d]       AWORD : SRE  |", $time, CHANNEL_ID);
+          CMD_SRX: $display("[%10t] TRACE [CH %2d]       AWORD : SRX  |", $time, CHANNEL_ID);
           CMD_ZQ:  $display("[%10t] TRACE [CH %2d]       AWORD : ZQ   | TYPE=%s", $time, CHANNEL_ID, aword.BA[0] ? "ZQCL" : "ZQCS");
           CMD_RFM: $display("[%10t] TRACE [CH %2d]       AWORD : %s | BG=%-2d | BA=%-2d", $time, CHANNEL_ID, aword.BA[3] ? "RFMpb" : "RFMab", aword.BG, aword.BA);
           default: $display("[%10t] TRACE [CH %2d]       AWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, aword.CMD);
@@ -40,6 +44,7 @@ module hbm4_trace_decoder #(
           CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
           CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC0] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc0.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
           CMD_MRS: $display("[%10t] TRACE [CH %2d] [PC0] DWORD : MRS  | BG=%-2d | BA=%-2d | OP=0x%04h", $time, CHANNEL_ID, dword_pc0.BG, dword_pc0.BA, dword_pc0.C_ADDR);
+          CMD_MRR: $display("[%10t] TRACE [CH %2d] [PC0] DWORD : MRR  | BG=%-2d | BA=%-2d", $time, CHANNEL_ID, dword_pc0.BG, dword_pc0.BA);
           default: $display("[%10t] TRACE [CH %2d] [PC0] DWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, dword_pc0.CMD);
         endcase
       end
@@ -50,6 +55,7 @@ module hbm4_trace_decoder #(
           CMD_RD:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "RDA" : "RD ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
           CMD_WR:  $display("[%10t] TRACE [CH %2d] [PC1] DWORD : %s  | BG=%-2d | BA=%-2d | COL=0x%04h", $time, CHANNEL_ID, dword_pc1.C_ADDR[AP_BIT] ? "WRA" : "WR ", dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
           CMD_MRS: $display("[%10t] TRACE [CH %2d] [PC1] DWORD : MRS  | BG=%-2d | BA=%-2d | OP=0x%04h", $time, CHANNEL_ID, dword_pc1.BG, dword_pc1.BA, dword_pc1.C_ADDR);
+          CMD_MRR: $display("[%10t] TRACE [CH %2d] [PC1] DWORD : MRR  | BG=%-2d | BA=%-2d", $time, CHANNEL_ID, dword_pc1.BG, dword_pc1.BA);
           default: $display("[%10t] TRACE [CH %2d] [PC1] DWORD : UNK  | CMD=%0h", $time, CHANNEL_ID, dword_pc1.CMD);
         endcase
       end
