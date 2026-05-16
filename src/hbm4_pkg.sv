@@ -94,6 +94,9 @@ package hbm4_pkg;
   localparam time tXP    = 8ns;    // Power-Down Exit Time
   localparam time tXS    = 200ns;  // Self-Refresh Exit Delay
   localparam time tCKSRE = 10ns;   // Valid clock after Self-Refresh Entry
+  localparam time tCPDED = 4ns;    // Command-to-Power-Down Entry Delay
+  localparam time tWRPDE = 28ns;   // Write Recovery + PDE delay (tWR + tCK margin)
+  localparam time tXSMRS = 210ns;  // Self-Refresh Exit to MRS delay
 
   // ZQ Calibration Timings
   localparam time tZQCS  = 128ns;  // ZQ Calibration Short

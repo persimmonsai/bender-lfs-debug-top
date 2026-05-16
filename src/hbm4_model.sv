@@ -331,6 +331,10 @@ module hbm4_model (
       // Process MRS Commands
       if (dword_pc0.CMD == CMD_MRS) begin
         automatic int mr_idx = {dword_pc0.C, dword_pc0.BA};
+        // tXSMRS: MRS not allowed too soon after Self-Refresh Exit
+        if (last_sr_exit_time != 0 && ($time - last_sr_exit_time) < tXSMRS) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tXSMRS violation on MRS PC0. SR exit was %0t ago, minimum is %0t.", $time, ($time - last_sr_exit_time), tXSMRS);
+        end
         mode_reg_pc0[mr_idx] <= {dword_pc0.BG, dword_pc0.C_ADDR};
         mr_programmed_pc0[mr_idx] <= 1;
         $display("[%0t] HBM4_MODEL: Programmed PC0 MR%0d", $time, mr_idx);
@@ -338,6 +342,9 @@ module hbm4_model (
       end
       if (dword_pc1.CMD == CMD_MRS) begin
         automatic int mr_idx = {dword_pc1.C, dword_pc1.BA};
+        if (last_sr_exit_time != 0 && ($time - last_sr_exit_time) < tXSMRS) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tXSMRS violation on MRS PC1. SR exit was %0t ago, minimum is %0t.", $time, ($time - last_sr_exit_time), tXSMRS);
+        end
         mode_reg_pc1[mr_idx] <= {dword_pc1.BG, dword_pc1.C_ADDR};
         mr_programmed_pc1[mr_idx] <= 1;
         last_mrs_time <= $time;
@@ -564,6 +571,17 @@ module hbm4_model (
       else if (aword.CMD == CMD_PDE) begin
         if (power_state != PWR_ACTIVE) begin
           $error("[%0t] HBM4_PROTOCOL_ERROR: PDE issued while not in ACTIVE state (current: %s)!", $time, power_state.name());
+        end
+        // tCPDED: minimum delay from last command to PDE
+        if (last_global_act_time != 0 && ($time - last_global_act_time) < tCPDED) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tCPDED violation on PDE. Last command was %0t ago, minimum is %0t.", $time, ($time - last_global_act_time), tCPDED);
+        end
+        // tWRPDE: write recovery must complete before PDE
+        if (last_wr_time_pc0 != 0 && ($time - last_wr_time_pc0) < tWRPDE) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tWRPDE violation on PDE (PC0 write too recent).", $time);
+        end
+        if (last_wr_time_pc1 != 0 && ($time - last_wr_time_pc1) < tWRPDE) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tWRPDE violation on PDE (PC1 write too recent).", $time);
         end
         // Determine pre-PD or active-PD based on bank states
         begin
