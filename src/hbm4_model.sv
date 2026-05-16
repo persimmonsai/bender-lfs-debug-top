@@ -751,6 +751,64 @@ module hbm4_model (
           join_none
         end
       end
+      else if (dword_pc0.CMD == CMD_MRR) begin
+        // Mode Register Read for PC0
+        begin
+          automatic int mr_idx = {dword_pc0.C, dword_pc0.BA};
+          automatic logic [7:0] mr_val = mode_reg_pc0[mr_idx];
+          automatic int dynamic_rl = (mode_reg_pc0[2] != 0) ? mode_reg_pc0[2] : 14;
+          
+          $display("[%0t] HBM4_MODEL: MRR PC0 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
+          last_rd_time_pc0 <= $time;
+          
+          fork
+            begin
+              logic [31:0] mrr_data;
+              logic [35:0] next_st;
+              logic rdbi_en;
+              
+              // MRR returns MR value replicated across all bytes
+              mrr_data = {4{mr_val}};
+              
+              repeat(dynamic_rl - 2) @(posedge vif.CK_t);
+              
+              // Drive Preamble
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              
+              rdbi_en = (mode_reg_pc0[0][2] == 1'b1);
+              
+              for (int beat = 0; beat < 4; beat++) begin
+                begin : mrr_rdbi_pc0
+                  next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc0, rdbi_en);
+                  read_data_pc0 = next_st[31:0];
+                  read_dbi_pc0 = next_st[35:32];
+                  read_valid_pc0 = 1;
+                  last_read_state_pc0 = next_st;
+                  
+                  vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0;
+                  @(negedge vif.WCK_t);
+                  
+                  next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc0, rdbi_en);
+                  read_data_pc0 = next_st[31:0];
+                  read_dbi_pc0 = next_st[35:32];
+                  last_read_state_pc0 = next_st;
+                  
+                  vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1;
+                  @(posedge vif.WCK_t);
+                end
+              end
+              
+              // Postamble
+              vif.RDQS_t_pc0 <= 1; vif.RDQS_c_pc0 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc0 <= 0; vif.RDQS_c_pc0 <= 1; @(posedge vif.WCK_t);
+              read_valid_pc0 = 0;
+            end
+          join_none
+        end
+      end
       
       // Handle PC1
       if (dword_pc1.CMD == CMD_WR) begin
@@ -890,15 +948,65 @@ module hbm4_model (
           join_none
         end
       end
+      else if (dword_pc1.CMD == CMD_MRR) begin
+        // Mode Register Read for PC1
+        begin
+          automatic int mr_idx = {dword_pc1.C, dword_pc1.BA};
+          automatic logic [7:0] mr_val = mode_reg_pc1[mr_idx];
+          automatic int dynamic_rl = (mode_reg_pc1[2] != 0) ? mode_reg_pc1[2] : 14;
+          
+          $display("[%0t] HBM4_MODEL: MRR PC1 MR%0d = 0x%02h (RL=%0d)", $time, mr_idx, mr_val, dynamic_rl);
+          last_rd_time_pc1 <= $time;
+          
+          fork
+            begin
+              logic [31:0] mrr_data;
+              logic [35:0] next_st;
+              logic rdbi_en;
+              
+              mrr_data = {4{mr_val}};
+              
+              repeat(dynamic_rl - 2) @(posedge vif.CK_t);
+              
+              // Drive Preamble
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              
+              rdbi_en = (mode_reg_pc1[0][2] == 1'b1);
+              
+              for (int beat = 0; beat < 4; beat++) begin
+                begin : mrr_rdbi_pc1
+                  next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc1, rdbi_en);
+                  read_data_pc1 = next_st[31:0];
+                  read_dbi_pc1 = next_st[35:32];
+                  read_valid_pc1 = 1;
+                  last_read_state_pc1 = next_st;
+                  
+                  vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0;
+                  @(negedge vif.WCK_t);
+                  
+                  next_st = hbm4_pkg::process_dbi_word(mrr_data, last_read_state_pc1, rdbi_en);
+                  read_data_pc1 = next_st[31:0];
+                  read_dbi_pc1 = next_st[35:32];
+                  last_read_state_pc1 = next_st;
+                  
+                  vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1;
+                  @(posedge vif.WCK_t);
+                end
+              end
+              
+              // Postamble
+              vif.RDQS_t_pc1 <= 1; vif.RDQS_c_pc1 <= 0; @(negedge vif.WCK_t);
+              vif.RDQS_t_pc1 <= 0; vif.RDQS_c_pc1 <= 1; @(posedge vif.WCK_t);
+              read_valid_pc1 = 0;
+            end
+          join_none
+        end
+      end
     end
   end
-
-  // Continuous assignments for driving read data
-  assign vif.DQ_PC0 = read_valid_pc0 ? read_data_pc0 : 32'hz;
-  assign vif.DBI_PC0 = read_valid_pc0 ? read_dbi_pc0 : 4'hz;
-  
-  assign vif.DQ_PC1 = read_valid_pc1 ? read_data_pc1 : 32'hz;
-  assign vif.DBI_PC1 = read_valid_pc1 ? read_dbi_pc1 : 4'hz;
 
   // =====================================================================
   // IEEE 1500 Wrapper Serial Port (WSP) Implementation
