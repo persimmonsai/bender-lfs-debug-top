@@ -1467,6 +1467,7 @@ module tb_top;
       else if (test_name == "test_timing_ccd") test_timing_ccd();
       else if (test_name == "test_timing_rtp") test_timing_rtp();
       else if (test_name == "test_timing_wtr") test_timing_wtr();
+      else if (test_name == "test_timing_faw_rrd") test_timing_faw_rrd();
       else if (test_name == "test_random_traffic") test_random_traffic();
       else if (test_name == "test_concurrent_traffic") test_concurrent_traffic();
       else if (test_name == "test_refresh_mechanics") test_refresh_mechanics();
@@ -1500,6 +1501,7 @@ module tb_top;
       test_timing_rtp();
       test_timing_wtr();
       test_random_traffic();
+      test_concurrent_traffic();
       test_refresh_mechanics();
       test_zq_calibration();
       test_cattrip_temperature();
@@ -1511,7 +1513,6 @@ module tb_top;
       test_hbm3e_controller_timing();
       test_timing_violations();
     end
-    
     $display("\n[%0t] TB_TOP: All Tests Completed Successfully", $time);
     $finish;
   end
