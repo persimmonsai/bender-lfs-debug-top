@@ -477,9 +477,9 @@ module hbm4_model (
           $error("[%0t] HBM4_TIMING_ERROR: tWR violation on PRECHARGE bank %0d. Expected %0t, got %0t", $time, bank_idx, tWR, ($time - last_bank_wr_time[bank_idx]));
         end
         
-        // Timing Check: tRTP
-        if (($time - last_bank_rd_time[bank_idx]) < tRTP && last_bank_rd_time[bank_idx] != 0) begin
-          $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PRECHARGE bank %0d. Expected %0t, got %0t", $time, bank_idx, tRTP, ($time - last_bank_rd_time[bank_idx]));
+        // Timing Check: tRTP (same bank group → tRTP_L)
+        if (($time - last_bank_rd_time[bank_idx]) < tRTP_L && last_bank_rd_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PRECHARGE bank %0d. Expected %0t, got %0t", $time, bank_idx, tRTP_L, ($time - last_bank_rd_time[bank_idx]));
         end
         
         // Execute Command
@@ -507,9 +507,9 @@ module hbm4_model (
             if (($time - last_bank_wr_time[i]) < tWR && last_bank_wr_time[i] != 0) begin
               $error("[%0t] HBM4_TIMING_ERROR: tWR violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tWR, ($time - last_bank_wr_time[i]));
             end
-            // Timing Check: tRTP
-            if (($time - last_bank_rd_time[i]) < tRTP && last_bank_rd_time[i] != 0) begin
-              $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRTP, ($time - last_bank_rd_time[i]));
+            // Timing Check: tRTP (same bank → tRTP_L)
+            if (($time - last_bank_rd_time[i]) < tRTP_L && last_bank_rd_time[i] != 0) begin
+              $error("[%0t] HBM4_TIMING_ERROR: tRTP violation on PREA bank %0d. Expected %0t, got %0t", $time, i, tRTP_L, ($time - last_bank_rd_time[i]));
             end
             
             bank_state[i] <= BANK_IDLE;
@@ -740,9 +740,9 @@ module hbm4_model (
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on WRITE PC0.", $time);
         end
         
-        // Timing Check: tRCD
-        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
-          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on WRITE PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        // Timing Check: tRCDWR
+        if (($time - last_act_time[bank_idx]) < tRCDWR && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCDWR violation on WRITE PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDWR, ($time - last_act_time[bank_idx]));
         end
         
         // Timing Check: tCCD (WR to WR)
@@ -853,9 +853,9 @@ module hbm4_model (
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on READ PC0.", $time);
         end
         
-        // Timing Check: tRCD
-        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
-          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on READ PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        // Timing Check: tRCDRD
+        if (($time - last_act_time[bank_idx]) < tRCDRD && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCDRD violation on READ PC0 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDRD, ($time - last_act_time[bank_idx]));
         end
         
         // Timing Check: tCCD (RD to RD)
@@ -938,7 +938,7 @@ module hbm4_model (
               
               // Auto-Precharge: close bank after tRTP
               if (dword_pc0.C_ADDR[AP_BIT]) begin
-                #(tRTP);
+                #(tRTP_L);
                 bank_state[b_idx] <= BANK_IDLE;
                 last_pre_time[b_idx] <= $time;
                 $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (RDA) Bank %0d", $time, b_idx);
@@ -1031,9 +1031,9 @@ module hbm4_model (
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on WRITE PC1.", $time);
         end
         
-        // Timing Check: tRCD
-        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
-          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on WRITE PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        // Timing Check: tRCDWR
+        if (($time - last_act_time[bank_idx]) < tRCDWR && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCDWR violation on WRITE PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDWR, ($time - last_act_time[bank_idx]));
         end
         
         // Timing Check: tCCD (WR to WR)
@@ -1139,9 +1139,9 @@ module hbm4_model (
            $error("[%0t] HBM4_TIMING_ERROR: tMOD violation on READ PC1.", $time);
         end
         
-        // Timing Check: tRCD
-        if (($time - last_act_time[bank_idx]) < tRCD && last_act_time[bank_idx] != 0) begin
-          $error("[%0t] HBM4_TIMING_ERROR: tRCD violation on READ PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCD, ($time - last_act_time[bank_idx]));
+        // Timing Check: tRCDRD
+        if (($time - last_act_time[bank_idx]) < tRCDRD && last_act_time[bank_idx] != 0) begin
+          $error("[%0t] HBM4_TIMING_ERROR: tRCDRD violation on READ PC1 bank %0d. Expected %0t, got %0t", $time, bank_idx, tRCDRD, ($time - last_act_time[bank_idx]));
         end
         
         // Timing Check: tCCD (RD to RD)
@@ -1224,7 +1224,7 @@ module hbm4_model (
               
               // Auto-Precharge: close bank after tRTP
               if (dword_pc1.C_ADDR[AP_BIT]) begin
-                #(tRTP);
+                #(tRTP_L);
                 bank_state[b_idx] <= BANK_IDLE;
                 last_pre_time[b_idx] <= $time;
                 $display("[%0t] HBM4_MODEL: AUTO-PRECHARGE (RDA) PC1 Bank %0d", $time, b_idx);

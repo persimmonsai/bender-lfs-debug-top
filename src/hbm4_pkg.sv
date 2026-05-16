@@ -57,7 +57,9 @@ package hbm4_pkg;
 
   // Timing Parameters (Based on Micron HBM3E Datasheet RevL)
   // Assuming nominal tCK = 1ns for nCK to ns conversion
-  localparam time tRCD = 17ns;
+  localparam time tRCDRD = 17ns;  // ACT to READ delay
+  localparam time tRCDWR = 15ns;  // ACT to WRITE delay
+  localparam time tRCD   = 17ns;  // Legacy alias (max of RD/WR)
   localparam time tCL  = 10ns;
   localparam time tWL  = 8ns;
   localparam time tRP  = 16ns;
@@ -74,7 +76,9 @@ package hbm4_pkg;
   localparam time tWTR_S = 6ns;  // 2*tCK + 4ns
   localparam time tRTW   = 18ns; // 18 nCK
   localparam time tWR    = 20ns; // Write recovery
-  localparam time tRTP   = 4ns;  // MAX(4*tCK, 4ns)
+  localparam time tRTP_L = 5ns;  // Read-to-Precharge (same bank group)
+  localparam time tRTP_S = 4ns;  // Read-to-Precharge (diff bank group)
+  localparam time tRTP   = 4ns;  // Legacy alias (minimum)
 
   // Refresh & MRS Parameters
   // Refresh Timings
